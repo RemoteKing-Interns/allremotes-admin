@@ -35,7 +35,7 @@ function buildUrl(path: string) {
   const normalizedPath = path.startsWith("/api")
     ? path
     : `/api${path.startsWith("/") ? path : `/${path}`}`;
-  return `${process.env.NEXT_PUBLIC_API_BASE_URL}${normalizedPath}`;
+  return `${API_BASE_URL}${normalizedPath}`;
 }
 
 async function readError(response: Response) {
@@ -537,7 +537,7 @@ export async function getContentSection<T>(section: ContentSection) {
 
 export async function getHomeContent() {
   const response = await getContentSection<unknown>("home");
-  return normalizeHomeContent(response.data ?? response);
+  return normalizeHomeContent(response?.data ?? response);
 }
 
 export async function saveHomeContent(content: HomeContent) {
@@ -552,7 +552,7 @@ export async function saveHomeContent(content: HomeContent) {
 
 export async function getNavigation() {
   const response = await getContentSection<unknown>("navigation");
-  return normalizeNavigation(response.data ?? response);
+  return normalizeNavigation(response?.data ?? response);
 }
 
 export async function saveNavigation(navigation: NavigationTree) {
@@ -567,7 +567,7 @@ export async function saveNavigation(navigation: NavigationTree) {
 
 export async function getReviews() {
   const response = await getContentSection<unknown>("reviews");
-  return normalizeReviews(response.data ?? response);
+  return normalizeReviews(response?.data ?? response);
 }
 
 export async function saveReviews(reviews: Review[]) {
@@ -588,7 +588,7 @@ export async function deleteReview(reviewId: string) {
 
 export async function getPromotions() {
   const response = await getContentSection<unknown>("promotions");
-  return normalizePromotions(response.data ?? response);
+  return normalizePromotions(response?.data ?? response);
 }
 
 export async function savePromotions(promotions: PromotionsData) {
@@ -603,7 +603,7 @@ export async function savePromotions(promotions: PromotionsData) {
 
 export async function getSettings() {
   const response = await getContentSection<unknown>("settings");
-  return normalizeSettings(response.data ?? response);
+  return normalizeSettings(response?.data ?? response);
 }
 
 export async function saveSettings(settings: SiteSettings) {
