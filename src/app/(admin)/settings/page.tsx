@@ -1,7 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, LoadingState, Notice, PageHeader, Toggle } from "@/components/admin/ui";
+import { RotateCcw, Save } from "lucide-react";
+import {
+  Card,
+  ConfirmDialog,
+  Field,
+  LoadingState,
+  Notice,
+  PageHeader,
+  PageTransition,
+  Toggle,
+  inputClassName,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { getApiBaseLabel, getSettings, resetAdminData, saveSettings } from "@/lib/admin/api";
 import type { SiteSettings } from "@/lib/admin/types";
 
@@ -17,6 +29,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
   const [notice, setNotice] = useState<FlashState>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -71,6 +84,10 @@ export default function SettingsPage() {
         tone: "success",
         text: "Settings saved successfully.",
       });
+      window.setTimeout(() => {
+        const iframe = document.getElementById("live-preview-iframe") as HTMLIFrameElement | null;
+        if (iframe) iframe.src = iframe.src;
+      }, 1500);
     } catch (error) {
       setNotice({
         tone: "error",
@@ -83,10 +100,6 @@ export default function SettingsPage() {
   }
 
   async function onReset() {
-    if (!window.confirm("Reset test data via the admin reset endpoint?")) {
-      return;
-    }
-
     setResetting(true);
     setNotice(null);
 
@@ -105,6 +118,7 @@ export default function SettingsPage() {
       });
     } finally {
       setResetting(false);
+      setShowResetDialog(false);
     }
   }
 
@@ -113,62 +127,63 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="stack">
+    <PageTransition>
       <PageHeader
         title="Settings"
         description="General store configuration, feature toggles, runtime information, and test reset."
         actions={
           <>
-            <button
+            <Button
               type="button"
-              className="button button--secondary"
-              onClick={() => void onReset()}
+              variant="danger"
+              size="lg"
+              onClick={() => setShowResetDialog(true)}
               disabled={resetting}
             >
+              <RotateCcw className="h-4 w-4" />
               {resetting ? "Resetting…" : "Reset Test Data"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="button button--primary"
+              variant="primary"
+              size="lg"
               onClick={() => void onSave()}
               disabled={saving}
             >
+              <Save className="h-4 w-4" />
               {saving ? "Saving…" : "Save Settings"}
-            </button>
+            </Button>
           </>
         }
       />
 
       {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
 
-      <div className="section-grid">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card title="General" description="Site name, email, pagination, currency, and timezone.">
-          <div className="form-grid">
-            <label className="field">
-              <span>Site Name</span>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Site Name">
               <input
-                className="input"
+                className={inputClassName}
                 value={settings.siteName}
                 onChange={(event) =>
                   setSettings({ ...settings, siteName: event.target.value })
                 }
               />
-            </label>
-            <label className="field">
-              <span>Site Email</span>
+            </Field>
+            <Field label="Site Email">
               <input
-                className="input"
+                className={inputClassName}
                 type="email"
                 value={settings.siteEmail}
                 onChange={(event) =>
                   setSettings({ ...settings, siteEmail: event.target.value })
                 }
               />
-            </label>
-            <label className="field">
-              <span>Items Per Page</span>
+            </Field>
+            <Field label="Items Per Page">
               <input
-                className="input"
+                className={inputClassName}
                 type="number"
                 min="1"
                 value={settings.itemsPerPage}
@@ -179,32 +194,30 @@ export default function SettingsPage() {
                   })
                 }
               />
-            </label>
-            <label className="field">
-              <span>Currency</span>
+            </Field>
+            <Field label="Currency">
               <input
-                className="input"
+                className={inputClassName}
                 value={settings.currency}
                 onChange={(event) =>
                   setSettings({ ...settings, currency: event.target.value })
                 }
               />
-            </label>
-            <label className="field">
-              <span>Timezone</span>
+            </Field>
+            <Field label="Timezone">
               <input
-                className="input"
+                className={inputClassName}
                 value={settings.timezone}
                 onChange={(event) =>
                   setSettings({ ...settings, timezone: event.target.value })
                 }
               />
-            </label>
+            </Field>
           </div>
         </Card>
 
         <Card title="Toggles" description="Operational flags for the storefront.">
-          <div className="stack">
+          <div className="space-y-3">
             <Toggle
               checked={settings.maintenanceMode}
               onChange={(checked) =>
@@ -231,25 +244,39 @@ export default function SettingsPage() {
       </div>
 
       <Card title="System Info" description="Read-only runtime and integration notes.">
-        <div className="system-grid">
-          <div className="detail-item">
-            <span>API Base URL</span>
-            <strong>{getApiBaseLabel()}</strong>
-          </div>
-          <div className="detail-item">
-            <span>Auth Mode</span>
-            <strong>Local browser session</strong>
-          </div>
-          <div className="detail-item">
-            <span>Admin Routes</span>
-            <strong>App Router + shared admin layout</strong>
-          </div>
-          <div className="detail-item">
-            <span>Current Browser Timezone</span>
-            <strong>{Intl.DateTimeFormat().resolvedOptions().timeZone}</strong>
-          </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <InfoItem label="API Base URL" value={getApiBaseLabel()} />
+          <InfoItem label="Auth Mode" value="Local browser session" />
+          <InfoItem label="Admin Routes" value="App Router + shared admin layout" />
+          <InfoItem
+            label="Current Browser Timezone"
+            value={Intl.DateTimeFormat().resolvedOptions().timeZone}
+          />
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={showResetDialog}
+        onOpenChange={setShowResetDialog}
+        title="Reset test data"
+        description="This calls the admin reset endpoint and reloads settings. Continue?"
+        confirmLabel="Reset"
+        tone="danger"
+        onConfirm={() => {
+          void onReset();
+        }}
+      />
+    </PageTransition>
+  );
+}
+
+function InfoItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold tracking-tight text-neutral-900">{value}</p>
     </div>
   );
 }

@@ -1,7 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, EmptyState, LoadingState, Notice, PageHeader, Toggle } from "@/components/admin/ui";
+import {
+  CheckCircle2,
+  Plus,
+  RefreshCw,
+  Save,
+  Star,
+  Trash2,
+  XCircle,
+} from "lucide-react";
+import {
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Field,
+  LoadingState,
+  Notice,
+  PageHeader,
+  PageTransition,
+  Toggle,
+  inputClassName,
+  textareaClassName,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { deleteReview, getReviews, saveReviews } from "@/lib/admin/api";
 import { createClientId } from "@/lib/admin/utils";
 import type { Review } from "@/lib/admin/types";
@@ -19,6 +41,7 @@ export default function ReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [notice, setNotice] = useState<FlashState>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -64,6 +87,11 @@ export default function ReviewsPage() {
     [reviews, selectedId],
   );
 
+  const pendingDeleteReview = useMemo(
+    () => reviews.find((review) => review.id === pendingDeleteId) ?? null,
+    [pendingDeleteId, reviews],
+  );
+
   function patchReview(reviewId: string, patch: Partial<Review>) {
     setReviews((current) =>
       current.map((review) =>
@@ -100,6 +128,10 @@ export default function ReviewsPage() {
         tone: "success",
         text: "Reviews saved successfully.",
       });
+      window.setTimeout(() => {
+        const iframe = document.getElementById("live-preview-iframe") as HTMLIFrameElement | null;
+        if (iframe) iframe.src = iframe.src;
+      }, 1500);
     } catch (error) {
       setNotice({
         tone: "error",
@@ -110,8 +142,18 @@ export default function ReviewsPage() {
     }
   }
 
-  async function onDelete(review: Review) {
-    if (!window.confirm(`Delete review by ${review.author || "this author"}?`)) {
+  function requestDelete(reviewId: string) {
+    setPendingDeleteId(reviewId);
+  }
+
+  async function onDeleteConfirmed() {
+    if (!pendingDeleteId) {
+      return;
+    }
+
+    const review = reviews.find((entry) => entry.id === pendingDeleteId);
+    if (!review) {
+      setPendingDeleteId(null);
       return;
     }
 
@@ -121,6 +163,7 @@ export default function ReviewsPage() {
       setSelectedId((current) =>
         current === review.id ? nextReviews[0]?.id ?? null : current,
       );
+      setPendingDeleteId(null);
       return;
     }
 
@@ -146,6 +189,7 @@ export default function ReviewsPage() {
       });
     } finally {
       setDeletingId(null);
+      setPendingDeleteId(null);
     }
   }
 
@@ -154,41 +198,46 @@ export default function ReviewsPage() {
   }
 
   return (
-    <div className="stack">
+    <PageTransition>
       <PageHeader
         title="Reviews"
         description="Curate rating, text, author, verified status, and date for storefront reviews."
         actions={
           <>
-            <button type="button" className="button button--ghost" onClick={addReview}>
+            <Button type="button" variant="secondary" size="lg" onClick={addReview}>
+              <Plus className="h-4 w-4" />
               Add Review
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="button button--primary"
+              variant="primary"
+              size="lg"
               onClick={() => void onSave()}
               disabled={saving}
             >
+              <Save className="h-4 w-4" />
               {saving ? "Saving…" : "Save Reviews"}
-            </button>
+            </Button>
           </>
         }
       />
 
       {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
 
-      <div className="section-grid">
+      <div className="grid gap-6 xl:grid-cols-[1.15fr_1fr]">
         <Card
-          title="Review List"
-          description="Select a review row to edit it in the side panel."
+          title="Review Moderation"
+          description="Approve/reject review visibility and open a card to edit full details."
           actions={
-            <button
+            <Button
               type="button"
-              className="button button--ghost"
+              variant="ghost"
+              size="lg"
               onClick={() => setReloadKey((value) => value + 1)}
             >
+              <RefreshCw className="h-4 w-4" />
               Refresh
-            </button>
+            </Button>
           }
         >
           {reviews.length === 0 ? (
@@ -197,56 +246,86 @@ export default function ReviewsPage() {
               description="Use Add Review to create the first review."
             />
           ) : (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Rating</th>
-                    <th>Text</th>
-                    <th>Author</th>
-                    <th>Verified</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviews.map((review) => (
-                    <tr
-                      key={review.id}
-                      className={review.id === selectedId ? "table-row--active" : ""}
+            <div className="space-y-3">
+              {reviews.map((review) => (
+                <article
+                  key={review.id}
+                  className={`space-y-3 rounded-xl border p-4 transition ${
+                    review.id === selectedId
+                      ? "border-neutral-400 bg-neutral-50"
+                      : "border-neutral-200 bg-white"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={() => setSelectedId(review.id)}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold tracking-tight text-neutral-900">
+                          {review.author || "Unnamed author"}
+                        </p>
+                        <p className="text-xs text-neutral-500">{review.date}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <Star
+                            key={`${review.id}-${index}`}
+                            className={`h-4 w-4 ${
+                              index < Number(review.rating)
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-neutral-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-neutral-700">{review.text || "No review text"}</p>
+                  </button>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="md"
+                      onClick={() => patchReview(review.id, { verified: true })}
                     >
-                      <td onClick={() => setSelectedId(review.id)}>{review.rating}</td>
-                      <td onClick={() => setSelectedId(review.id)}>{review.text}</td>
-                      <td onClick={() => setSelectedId(review.id)}>{review.author}</td>
-                      <td onClick={() => setSelectedId(review.id)}>
-                        {review.verified ? "Yes" : "No"}
-                      </td>
-                      <td onClick={() => setSelectedId(review.id)}>{review.date}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button--danger"
-                          onClick={() => void onDelete(review)}
-                          disabled={deletingId === review.id}
-                        >
-                          {deletingId === review.id ? "Deleting…" : "Delete"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="md"
+                      onClick={() => patchReview(review.id, { verified: false })}
+                    >
+                      <XCircle className="h-4 w-4 text-rose-600" />
+                      Reject
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="md"
+                      onClick={() => requestDelete(review.id)}
+                      disabled={deletingId === review.id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deletingId === review.id ? "Deleting…" : "Delete"}
+                    </Button>
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </Card>
 
         <Card title="Edit Review" description="Update review content before saving.">
           {selectedReview ? (
-            <div className="form-grid">
-              <label className="field">
-                <span>Rating</span>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Rating">
                 <input
-                  className="input"
+                  className={inputClassName}
                   type="number"
                   min="1"
                   max="5"
@@ -257,54 +336,73 @@ export default function ReviewsPage() {
                     })
                   }
                 />
-              </label>
-              <label className="field">
-                <span>Author</span>
+              </Field>
+              <Field label="Author">
                 <input
-                  className="input"
+                  className={inputClassName}
                   value={selectedReview.author}
                   onChange={(event) =>
                     patchReview(selectedReview.id, { author: event.target.value })
                   }
                 />
-              </label>
-              <label className="field">
-                <span>Date</span>
+              </Field>
+              <Field label="Date">
                 <input
-                  className="input"
+                  className={inputClassName}
                   type="date"
                   value={selectedReview.date}
                   onChange={(event) =>
                     patchReview(selectedReview.id, { date: event.target.value })
                   }
                 />
-              </label>
-              <Toggle
-                checked={selectedReview.verified}
-                onChange={(checked) =>
-                  patchReview(selectedReview.id, { verified: checked })
-                }
-                label="Verified"
-              />
-              <label className="field field--full">
-                <span>Text</span>
+              </Field>
+              <Field label="Verified">
+                <Toggle
+                  checked={selectedReview.verified}
+                  onChange={(checked) =>
+                    patchReview(selectedReview.id, { verified: checked })
+                  }
+                  label="Verified"
+                />
+              </Field>
+              <Field label="Text" full>
                 <textarea
-                  className="textarea"
+                  className={textareaClassName}
                   value={selectedReview.text}
                   onChange={(event) =>
                     patchReview(selectedReview.id, { text: event.target.value })
                   }
                 />
-              </label>
+              </Field>
             </div>
           ) : (
             <EmptyState
               title="Select a review"
-              description="Choose a review row to edit it here."
+              description="Choose a review card to edit it here."
             />
           )}
         </Card>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteReview)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteId(null);
+          }
+        }}
+        title="Delete review"
+        description={
+          pendingDeleteReview
+            ? `Delete review by ${pendingDeleteReview.author || "this author"}?`
+            : "Delete this review?"
+        }
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => {
+          void onDeleteConfirmed();
+        }}
+      />
+    </PageTransition>
   );
 }
