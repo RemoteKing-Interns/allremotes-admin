@@ -5,6 +5,78 @@
   --font-sans: "Nunito", system-ui, sans-serif;
 }
 
+@keyframes feedbackMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes heroImageIn {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes heroContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.site-shell {
+  background:
+    radial-gradient(circle at top left, rgba(26, 122, 110, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(26, 122, 110, 0.06), transparent 22%),
+    radial-gradient(circle at bottom right, rgba(192, 57, 43, 0.05), transparent 26%),
+    linear-gradient(180deg, #f7fcfa 0%, #fbf8f5 46%, #e7f3ef 100%);
+}
+
+.site-container {
+  width: min(1328px, calc(100% - clamp(1rem, 3.6vw, 3rem) * 2));
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3.6vw, 3rem);
+}
+
+.site-container-wide {
+  width: min(1392px, calc(100% - clamp(1rem, 3.6vw, 3rem) * 2));
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3.6vw, 3rem);
+}
+
+.feedback-marquee {
+  overflow: hidden;
+  position: relative;
+}
+
+.feedback-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: feedbackMarquee 32s linear infinite;
+}
+
+.feedback-marquee:hover .feedback-marquee-track {
+  animation-play-state: paused;
+}
+
+.hero-slide-image--active {
+  animation: heroImageIn 6s ease-out both;
+}
+
+.hero-slide-content {
+  animation: heroContentIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 
 /* ─── DESIGN TOKENS ─────────────────────────────────────────── */
 :root {
