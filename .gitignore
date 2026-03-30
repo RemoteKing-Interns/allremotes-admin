@@ -27,6 +27,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+/allremotes
 
 # typescript
 *.tsbuildinfo

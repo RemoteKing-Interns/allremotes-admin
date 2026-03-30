@@ -1,7 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, LoadingState, Notice, PageHeader } from "@/components/admin/ui";
+import { RefreshCw, Trash2, UserPlus } from "lucide-react";
+import {
+  Card,
+  ConfirmDialog,
+  Field,
+  LoadingState,
+  Notice,
+  PageHeader,
+  PageTransition,
+  inputClassName,
+  selectClassName,
+  statusBadgeClass,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import { createUser, getUsers } from "@/lib/admin/api";
 import { formatDate } from "@/lib/admin/utils";
 import { ADMIN_EMAIL, type AdminUser } from "@/lib/admin/types";
@@ -47,6 +60,7 @@ export default function UsersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState<FlashState>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [pendingDeleteEmail, setPendingDeleteEmail] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalState(readLocalState());
@@ -91,6 +105,11 @@ export default function UsersPage() {
   const users = useMemo(
     () => mergeUsers(apiUsers, localState),
     [apiUsers, localState],
+  );
+
+  const pendingDeleteUser = useMemo(
+    () => users.find((user) => normalizeEmail(user.email) === normalizeEmail(pendingDeleteEmail ?? "")) ?? null,
+    [pendingDeleteEmail, users],
   );
 
   async function onCreateUser(event: React.FormEvent<HTMLFormElement>) {
@@ -154,29 +173,34 @@ export default function UsersPage() {
     });
   }
 
-  function onDeleteUser(user: AdminUser) {
+  function requestDeleteUser(user: AdminUser) {
     if (isProtectedUser(user)) {
       return;
     }
 
-    if (!window.confirm(`Delete ${user.email} from the admin list?`)) {
+    setPendingDeleteEmail(user.email);
+  }
+
+  function confirmDeleteUser() {
+    if (!pendingDeleteEmail) {
       return;
     }
 
     updateLocalState((current) => ({
       ...current,
       deletedEmails: Array.from(
-        new Set([...current.deletedEmails, normalizeEmail(user.email)]),
+        new Set([...current.deletedEmails, normalizeEmail(pendingDeleteEmail)]),
       ),
       createdUsers: current.createdUsers.filter(
-        (entry) => normalizeEmail(entry.email) !== normalizeEmail(user.email),
+        (entry) => normalizeEmail(entry.email) !== normalizeEmail(pendingDeleteEmail),
       ),
     }));
 
     setNotice({
       tone: "info",
-      text: `User ${user.email} removed from this admin session.`,
+      text: `User ${pendingDeleteEmail} removed from this admin session.`,
     });
+    setPendingDeleteEmail(null);
   }
 
   function updateLocalState(updater: (current: LocalUserState) => LocalUserState) {
@@ -192,62 +216,60 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="stack">
+    <PageTransition>
       <PageHeader
         title="Users"
         description="Create users via the live API and manage local enable/disable or delete overrides."
         actions={
-          <button
+          <Button
             type="button"
-            className="button button--ghost"
+            variant="ghost"
+            size="lg"
             onClick={() => setReloadKey((value) => value + 1)}
           >
+            <RefreshCw className="h-4 w-4" />
             Refresh
-          </button>
+          </Button>
         }
       />
 
       {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
 
-      <div className="section-grid">
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
         <Card title="Add User" description="Create a new admin or customer account.">
-          <form className="form-grid" onSubmit={onCreateUser}>
-            <label className="field">
-              <span>Name</span>
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={onCreateUser}>
+            <Field label="Name">
               <input
-                className="input"
+                className={inputClassName}
                 value={draft.name}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, name: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>Email</span>
+            </Field>
+            <Field label="Email">
               <input
-                className="input"
+                className={inputClassName}
                 type="email"
                 value={draft.email}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, email: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>Password</span>
+            </Field>
+            <Field label="Password">
               <input
-                className="input"
+                className={inputClassName}
                 type="password"
                 value={draft.password}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, password: event.target.value }))
                 }
               />
-            </label>
-            <label className="field">
-              <span>Role</span>
+            </Field>
+            <Field label="Role">
               <select
-                className="input"
+                className={selectClassName}
                 value={draft.role}
                 onChange={(event) =>
                   setDraft((current) => ({
@@ -259,15 +281,17 @@ export default function UsersPage() {
                 <option value="customer">Customer</option>
                 <option value="admin">Admin</option>
               </select>
-            </label>
-            <div className="inline-actions">
-              <button
+            </Field>
+            <div className="md:col-span-2">
+              <Button
                 type="submit"
-                className="button button--primary"
+                variant="primary"
+                size="lg"
                 disabled={submitting}
               >
+                <UserPlus className="h-4 w-4" />
                 {submitting ? "Creating…" : "Create User"}
-              </button>
+              </Button>
             </div>
           </form>
         </Card>
@@ -276,55 +300,62 @@ export default function UsersPage() {
           title="User Table"
           description="The built-in admin account cannot be disabled or deleted."
         >
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="min-w-full divide-y divide-neutral-200 text-left text-sm">
+              <thead className="bg-neutral-50 text-[11px] uppercase tracking-[0.14em] text-neutral-500">
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Joined</th>
-                  <th>Actions</th>
+                  <th className="px-4 py-3 font-semibold">Name</th>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Role</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Joined</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-neutral-200 bg-white">
                 {users.map((user) => (
                   <tr key={user.email}>
-                    <td>{user.name || "Unnamed user"}</td>
-                    <td>{user.email}</td>
-                    <td>{user.role}</td>
-                    <td>
+                    <td className="px-4 py-3 text-sm font-medium text-neutral-900">{user.name || "Unnamed user"}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-700">{user.email}</td>
+                    <td className="px-4 py-3">
                       <span
                         className={
-                          user.status === "active"
-                            ? "status-pill status-pill--success"
-                            : "status-pill status-pill--danger"
+                          user.role === "admin"
+                            ? "inline-flex rounded-full border border-rose-200 bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-800"
+                            : "inline-flex rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800"
                         }
                       >
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={statusBadgeClass(user.status === "active" ? "success" : "danger")}>
                         {user.status}
                       </span>
                     </td>
-                    <td>{user.joined || formatDate(user.createdAt)}</td>
-                    <td>
+                    <td className="px-4 py-3 text-sm text-neutral-700">{user.joined || formatDate(user.createdAt)}</td>
+                    <td className="px-4 py-3">
                       {isProtectedUser(user) ? (
-                        <span className="status-pill status-pill--muted">Protected</span>
+                        <span className={statusBadgeClass("muted")}>Protected</span>
                       ) : (
-                        <div className="table-actions">
-                          <button
+                        <div className="flex flex-wrap gap-2">
+                          <Button
                             type="button"
-                            className="button button--ghost"
+                            variant="ghost"
+                            size="md"
                             onClick={() => onToggleStatus(user)}
                           >
                             {user.status === "active" ? "Disable" : "Enable"}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            className="button button--danger"
-                            onClick={() => onDeleteUser(user)}
+                            variant="danger"
+                            size="md"
+                            onClick={() => requestDeleteUser(user)}
                           >
+                            <Trash2 className="h-4 w-4" />
                             Delete
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </td>
@@ -335,7 +366,25 @@ export default function UsersPage() {
           </div>
         </Card>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteEmail(null);
+          }
+        }}
+        title="Delete user"
+        description={
+          pendingDeleteUser
+            ? `Delete ${pendingDeleteUser.email} from this admin list?`
+            : "Delete this user from this admin list?"
+        }
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={confirmDeleteUser}
+      />
+    </PageTransition>
   );
 }
 
