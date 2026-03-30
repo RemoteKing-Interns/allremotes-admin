@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Card, Notice, PageHeader } from "@/components/admin/ui";
+import { Download, FileSpreadsheet, Upload } from "lucide-react";
+import {
+  Card,
+  Notice,
+  PageHeader,
+  PageTransition,
+  inputClassName,
+  statusBadgeClass,
+} from "@/components/admin/ui";
+import { Button } from "@/components/ui/button";
 import {
   downloadUploadTemplate,
   uploadProductsCsv,
@@ -75,110 +84,106 @@ export default function UploadCsvPage() {
   }
 
   return (
-    <div className="stack">
+    <PageTransition>
       <PageHeader
         title="Upload CSV"
         description="Import products in bulk using the admin upload endpoint."
         actions={
           <>
-            <button
+            <Button
               type="button"
-              className="button button--ghost"
+              variant="ghost"
+              size="lg"
               onClick={() => void onDownloadTemplate()}
               disabled={downloading}
             >
+              <Download className="h-4 w-4" />
               {downloading ? "Downloading…" : "Download Template"}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="button button--primary"
+              variant="primary"
+              size="lg"
               onClick={() => void onUpload()}
               disabled={uploading}
             >
+              <Upload className="h-4 w-4" />
               {uploading ? "Uploading…" : "Upload CSV"}
-            </button>
+            </Button>
           </>
         }
       />
 
       {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
 
-      <div className="section-grid">
+      <div className="grid gap-6 xl:grid-cols-2">
         <Card title="CSV Picker" description="Choose a product CSV file to upload.">
-          <div className="file-picker">
+          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold tracking-tight text-neutral-800">
+              <FileSpreadsheet className="h-4 w-4 text-neutral-600" />
+              <span>CSV File</span>
+            </div>
             <input
-              className="input"
+              className={inputClassName}
               type="file"
               accept=".csv,text/csv"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
-            <div className="helper-copy">
+            <p className="text-sm text-neutral-600">
               Selected file: {file ? `${file.name} (${file.size} bytes)` : "None"}
-            </div>
+            </p>
           </div>
         </Card>
 
         <Card title="Results Summary" description="Rows processed and upload outcome counts.">
           {result ? (
-            <div className="results-grid">
-              <div className="detail-item">
-                <span>Rows processed</span>
-                <strong>{result.rowsProcessed}</strong>
-              </div>
-              <div className="detail-item">
-                <span>Created</span>
-                <strong>{result.created}</strong>
-              </div>
-              <div className="detail-item">
-                <span>Updated</span>
-                <strong>{result.updated}</strong>
-              </div>
-              <div className="detail-item">
-                <span>Failed</span>
-                <strong>{result.failed}</strong>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <MetricCard label="Rows processed" value={String(result.rowsProcessed)} />
+              <MetricCard label="Created" value={String(result.created)} />
+              <MetricCard label="Updated" value={String(result.updated)} />
+              <MetricCard label="Failed" value={String(result.failed)} />
             </div>
           ) : (
-            <div className="helper-copy">
+            <p className="text-sm text-neutral-600">
               Upload a CSV file to see processing results here.
-            </div>
+            </p>
           )}
         </Card>
       </div>
 
       {result ? (
         <Card title="Result Details" description="Per-row outcome with SKU, status, and error details.">
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
+          <div className="overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="min-w-full divide-y divide-neutral-200 text-left text-sm">
+              <thead className="bg-neutral-50 text-[11px] uppercase tracking-[0.14em] text-neutral-500">
                 <tr>
-                  <th>Row</th>
-                  <th>SKU</th>
-                  <th>Name</th>
-                  <th>Status</th>
-                  <th>Error</th>
+                  <th className="px-4 py-3 font-semibold">Row</th>
+                  <th className="px-4 py-3 font-semibold">SKU</th>
+                  <th className="px-4 py-3 font-semibold">Name</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Error</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-neutral-200 bg-white">
                 {result.details.map((detail) => (
                   <tr key={`${detail.row}_${detail.sku ?? detail.name ?? "row"}`}>
-                    <td>{detail.row}</td>
-                    <td>{detail.sku ?? "-"}</td>
-                    <td>{detail.name ?? "-"}</td>
-                    <td>
+                    <td className="px-4 py-3 text-sm text-neutral-800">{detail.row}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-700">{detail.sku ?? "-"}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-700">{detail.name ?? "-"}</td>
+                    <td className="px-4 py-3">
                       <span
-                        className={
+                        className={statusBadgeClass(
                           detail.status === "failed"
-                            ? "status-pill status-pill--danger"
+                            ? "danger"
                             : detail.status === "created"
-                              ? "status-pill status-pill--success"
-                              : "status-pill status-pill--warning"
-                        }
+                              ? "success"
+                              : "warning",
+                        )}
                       >
                         {detail.status}
                       </span>
                     </td>
-                    <td>{detail.error ?? "-"}</td>
+                    <td className="px-4 py-3 text-sm text-neutral-700">{detail.error ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -186,6 +191,15 @@ export default function UploadCsvPage() {
           </div>
         </Card>
       ) : null}
+    </PageTransition>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">{label}</p>
+      <p className="mt-1 text-lg font-semibold tracking-tight text-neutral-900">{value}</p>
     </div>
   );
 }

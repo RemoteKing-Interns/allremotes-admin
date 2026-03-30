@@ -9,7 +9,7 @@ export default async function CatchAllPage({
   const { slug } = await params;
 
   return (
-    <Suspense fallback={<div className="loading"><div className="spinner" /></div>}>
+    <Suspense fallback={<div className="app-loading">Loading storefront…</div>}>
       <StorefrontAdminApp slug={slug} />
     </Suspense>
   );

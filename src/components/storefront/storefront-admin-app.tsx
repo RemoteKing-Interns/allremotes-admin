@@ -12,6 +12,15 @@ import {
   type ReactNode,
 } from "react";
 import {
+  CreditCard,
+  Headset,
+  RotateCcw,
+  ShieldCheck,
+  Star,
+  Truck,
+  Users,
+} from "lucide-react";
+import {
   deleteReview,
   getHomeContent,
   getNavigation,
@@ -46,17 +55,16 @@ import {
   subscribeToAdminSession,
 } from "@/lib/admin/auth";
 
-const LIVE_SITE_ORIGIN = "https://allremotes.vercel.app";
-const DEFAULT_TRUST_ITEMS = [
-  { icon: "🛡️", label: "12 Month Warranty" },
-  { icon: "🔄", label: "30 Day Returns" },
-  { icon: "🚚", label: "Free Shipping AU" },
-  { icon: "🔒", label: "Secure Payments" },
-  { icon: "⭐", label: "1,500+ Reviews" },
-  { icon: "✓", label: "Australian Owned" },
-  { icon: "💯", label: "100% Genuine" },
-  { icon: "📦", label: "Fast Dispatch" },
-  { icon: "🛒", label: "No Minimum Order" },
+const ASSET_ORIGIN = (process.env.NEXT_PUBLIC_ASSET_ORIGIN ?? "")
+  .trim()
+  .replace(/\/+$/, "");
+const DEFAULT_TOP_BAR_ITEMS = [
+  "12 MONTH WARRANTY",
+  "30 DAY RETURNS",
+  "SAFE & SECURE",
+  "TRADE PRICING",
+  "NO MINIMUM ORDER",
+  "FREE SHIPPING",
 ];
 const FEATURE_ICON_FALLBACKS = [
   "/remotes/010_s-l500.webp",
@@ -160,6 +168,25 @@ const FOOTER_CATEGORY_KEYS = [
   "locksmithing",
   "shop-by-brand",
 ] as const;
+const WHY_BUY_ICON_MAP = {
+  qa: ShieldCheck,
+  shieldcheck: ShieldCheck,
+  shield: ShieldCheck,
+  fs: Truck,
+  truck: Truck,
+  shipping: Truck,
+  wr: RotateCcw,
+  returns: RotateCcw,
+  warranty: RotateCcw,
+  cs: Headset,
+  support: Headset,
+  pm: CreditCard,
+  payment: CreditCard,
+  securepayments: CreditCard,
+  tr: Users,
+  trusted: Users,
+  reviews: Star,
+} as const;
 
 type DirtyKey =
   | "home"
@@ -195,7 +222,11 @@ function assetUrl(pathOrUrl: string) {
     return pathOrUrl;
   }
 
-  return `${LIVE_SITE_ORIGIN}${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
+  if (ASSET_ORIGIN) {
+    return `${ASSET_ORIGIN}${pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`}`;
+  }
+
+  return pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
 }
 
 function formatCurrency(value: number, currency = "AUD") {
@@ -263,6 +294,63 @@ function supportSettings(settings: SiteSettings) {
   };
 }
 
+function topBarIcon(text: string) {
+  const upper = text.toUpperCase();
+
+  if (upper.includes("WARRANTY")) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    );
+  }
+
+  if (upper.includes("RETURN")) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="1 4 1 10 7 10" />
+        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+      </svg>
+    );
+  }
+
+  if (upper.includes("SAFE") || upper.includes("SECURE")) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    );
+  }
+
+  if (upper.includes("TRADE")) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    );
+  }
+
+  if (upper.includes("FREE SHIPPING")) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="3" width="15" height="13" />
+        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+        <circle cx="5.5" cy="18.5" r="2.5" />
+        <circle cx="18.5" cy="18.5" r="2.5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+
 function ensureReviews(reviews: Review[]) {
   if (reviews.length >= 6) {
     return reviews;
@@ -325,18 +413,26 @@ function iconFromIndex(index?: number) {
   return assetUrl(REMOTE_ICON_PATHS[index % REMOTE_ICON_PATHS.length]);
 }
 
-function ProductPrice({
-  product,
-  currency,
-}: {
-  product: Product;
-  currency: string;
-}) {
-  return (
-    <div className="price-discount-wrap">
-      <span className="price">{formatCurrency(product.price || 0, currency)}</span>
-    </div>
-  );
+function resolveWhyBuyIcon(
+  card: Pick<HomeContent["whyBuy"][number], "icon" | "title">,
+  index: number,
+) {
+  const keyFromIcon = String(card.icon || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const keyFromTitle = String(card.title || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  const mapped =
+    WHY_BUY_ICON_MAP[keyFromIcon as keyof typeof WHY_BUY_ICON_MAP] ??
+    WHY_BUY_ICON_MAP[keyFromTitle as keyof typeof WHY_BUY_ICON_MAP];
+
+  if (mapped) {
+    return mapped;
+  }
+
+  const fallbackIcons = [ShieldCheck, Truck, RotateCcw, Headset, CreditCard, Users];
+  return fallbackIcons[index % fallbackIcons.length];
 }
 
 function EditorField(props: {
@@ -1921,68 +2017,80 @@ export default function StorefrontAdminApp({
   }
 
   function renderHeader() {
+    const topBarItems =
+      store?.promotions.topInfoBar.enabled && store.promotions.topInfoBar.items.length
+        ? store.promotions.topInfoBar.items
+        : DEFAULT_TOP_BAR_ITEMS;
+
+    const isRouteActive = (path: string) => {
+      if (!path) {
+        return false;
+      }
+
+      if (path === "/") {
+        return routePath === "/";
+      }
+
+      return routePath === path || routePath.startsWith(`${path}/`);
+    };
+
     return (
-      <header className="header editable-region">
-        {store?.promotions.topInfoBar.enabled ? (
-          <div className="top-info-bar">
+      <header className="sticky top-0 z-[1200] border-b border-neutral-200 bg-neutral-50/80 backdrop-blur-md">
+        <div className="relative editable-region">
+          <div className="border-b border-[#0a4743]/50 bg-[#0a4743]">
             <div className="container">
-              <div className="info-items">
-                {store.promotions.topInfoBar.items.map((item, index) => (
-                  <span key={`${item}_${index}`} className="info-item">
+              <div className="flex flex-wrap items-center justify-center gap-y-1.5 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-white/90 [column-gap:clamp(0.75rem,2.6vw,2.25rem)] sm:text-[11px]">
+                {topBarItems.map((item, index) => (
+                  <span key={`${item}_${index}`} className="inline-flex max-w-full items-center gap-1.5 text-center">
+                    <span className="text-[#7cd3c8]">{topBarIcon(item)}</span>
                     {item}
-                    {index < store.promotions.topInfoBar.items.length - 1 ? (
-                      <span className="separator">|</span>
-                    ) : null}
                   </span>
                 ))}
               </div>
             </div>
-            <SectionEditButton
-              visible={Boolean(session)}
-              label="Top Info Bar"
-              onClick={() => openEditor("top-info-bar")}
-            />
           </div>
-        ) : null}
+          <SectionEditButton
+            visible={Boolean(session)}
+            label="Top Info Bar"
+            onClick={() => openEditor("top-info-bar")}
+          />
+        </div>
 
         {renderTopInfoBarEditor()}
 
-        <div className="main-header">
+        <div className="border-b border-neutral-200 bg-white/90">
           <div className="container">
-            <div className="header-content">
-              <Link className="logo-container" href="/">
+            <div className="flex flex-wrap items-center gap-3 py-3.5 sm:gap-4 md:gap-6 md:py-4">
+              <Link href="/" className="shrink-0" aria-label="ALLREMOTES home">
                 <img
                   src={assetUrl("/images/mainlogo.png")}
                   alt="ALLREMOTES"
-                  className="logo"
+                  className="h-10 w-auto sm:h-12 lg:h-14"
                 />
               </Link>
 
-              <div className="search-container">
+              <div className="order-3 relative basis-full lg:order-none lg:mx-auto lg:flex-1 lg:max-w-2xl">
                 <form
-                  className="search-form"
                   onSubmit={(event) => {
                     event.preventDefault();
                     router.push(`/products/all?query=${encodeURIComponent(searchQuery)}`);
+                    setMobileDrawerOpen(false);
                   }}
+                  className="relative"
                 >
                   <input
                     type="text"
-                    placeholder="Search Products"
-                    className="search-input"
+                    placeholder="Search remote, brand, or model"
+                    className="h-12 w-full rounded-lg border border-neutral-300 bg-white pl-5 pr-12 text-sm text-neutral-900 shadow-sm placeholder:text-neutral-400 transition-colors focus:border-[#1a7a6e]/50 focus:outline-none focus:ring-1 focus:ring-[#1a7a6e]/20"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                   />
-                  <button type="submit" className="search-submit-btn">
-                    <svg
-                      className="search-icon"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
+                  <button
+                    type="submit"
+                    className="absolute right-1.5 top-1.5 inline-flex h-9 w-9 items-center justify-center rounded-md bg-[#1a7a6e] text-white transition hover:bg-[#0a4743]"
+                    aria-label="Search"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="11" cy="11" r="8" />
                       <path d="m21 21-4.35-4.35" />
                     </svg>
@@ -1990,95 +2098,134 @@ export default function StorefrontAdminApp({
                 </form>
 
                 {deferredSearch.trim() ? (
-                  <div className="search-results">
-                    <div className="search-results-header">Matching products</div>
+                  <div className="absolute left-0 right-0 top-[calc(100%+0.4rem)] z-[1300] overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.16)]">
+                    <div className="flex flex-wrap items-center justify-between gap-1 border-b border-neutral-200 px-4 py-3 text-xs font-semibold text-neutral-700">
+                      <span>Search Results</span>
+                      <span className="text-neutral-400">Top matches</span>
+                    </div>
                     {searchResults.length ? (
-                      <div className="search-results-list">
+                      <div className="max-h-[22rem] overflow-auto">
                         {searchResults.map((product) => (
                           <Link
                             key={product.id}
-                            className="search-result-item"
                             href={`/product/${product.id}`}
+                            className="flex items-center gap-3 px-4 py-3 transition hover:bg-neutral-100"
                             onClick={() => setSearchQuery("")}
                           >
                             <img
-                              className="search-result-image"
-                              src={assetUrl(product.image)}
+                              src={assetUrl(product.image || "/images/mainlogo.png")}
                               alt={product.name}
+                              className="h-12 w-12 rounded-lg border border-neutral-200 bg-white object-contain p-1"
                             />
-                            <div className="search-result-info">
-                              <div className="search-result-name">{product.name}</div>
-                              <div className="search-result-category">{product.brand}</div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-semibold text-neutral-900">
+                                {product.name}
+                              </div>
+                              <div className="mt-1 text-xs font-semibold text-neutral-500">
+                                {product.brand || "ALLREMOTES"}
+                              </div>
                             </div>
-                            <div className="search-result-price">
-                              <span className="search-result-price-new">
-                                {formatCurrency(product.price, store?.settings.currency || "AUD")}
-                              </span>
+                            <div className="text-sm font-extrabold text-neutral-900">
+                              {formatCurrency(product.price, store?.settings.currency || "AUD")}
                             </div>
                           </Link>
                         ))}
                       </div>
                     ) : (
-                      <div className="search-no-results">
-                        <p>No products found.</p>
-                        <div className="search-suggestion">
-                          Try a brand, SKU, or remote name.
-                        </div>
+                      <div className="p-4">
+                        <p className="text-sm font-semibold text-neutral-900">No products found.</p>
+                        <p className="mt-1 text-sm text-neutral-600">
+                          Try searching for a brand, SKU, or remote model.
+                        </p>
                       </div>
                     )}
                   </div>
                 ) : null}
               </div>
 
-              <div className="header-actions">
-                <button type="button" className="btn btn-outline btn-small">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-3 max-[359px]:w-full max-[359px]:justify-between">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 transition hover:border-[#1a7a6e]/30 hover:bg-[#1a7a6e]/5 hover:text-[#0a4743] h-10 max-[359px]:flex-1"
+                >
                   Login
                 </button>
-                <button type="button" className="btn btn-primary btn-small">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#c0392b] px-4 text-xs font-extrabold text-white shadow-[0_12px_28px_rgba(192,57,43,0.18)] transition hover:bg-[#962d22] h-10 max-[359px]:flex-1"
+                >
                   Register
                 </button>
-                <Link className="cart-icon-new" href="/products/all">
-                  <div className="cart-icon-wrapper">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M6 6h15l-1.5 9h-13L6 6Z" />
-                      <path d="M6 6 5 3H2" />
-                      <circle cx="9" cy="20" r="1.3" />
-                      <circle cx="18" cy="20" r="1.3" />
-                    </svg>
-                  </div>
+                <Link
+                  href="/products/all"
+                  className="relative inline-flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-200 bg-white/80 text-neutral-800 shadow-sm transition hover:bg-neutral-100"
+                  aria-label="Cart"
+                >
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M6 6h15l-1.5 9h-13L6 6Z" />
+                    <path d="M6 6 5 3H2" />
+                    <circle cx="9" cy="20" r="1.3" />
+                    <circle cx="18" cy="20" r="1.3" />
+                  </svg>
                 </Link>
                 <button
-                  className="hamburger-btn"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-neutral-200 bg-white/80 text-neutral-800 shadow-sm transition hover:bg-neutral-100 lg:hidden"
                   aria-expanded={mobileDrawerOpen}
                   aria-controls="mobile-drawer"
                   aria-label="Toggle navigation menu"
                   onClick={() => setMobileDrawerOpen(true)}
                 >
-                  <span className="hamburger-line" />
-                  <span className="hamburger-line" />
-                  <span className="hamburger-line" />
+                  <div className="grid gap-1.5">
+                    <span className="h-0.5 w-5 rounded-full bg-neutral-800" />
+                    <span className="h-0.5 w-5 rounded-full bg-neutral-800" />
+                    <span className="h-0.5 w-5 rounded-full bg-neutral-800" />
+                  </div>
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <nav className="main-nav editable-region">
-          <div className="container">
-            <div className="nav-inner">
-              <div className="nav-links">
-                <Link className="nav-cta" href="/products/all">
-                  View Products
-                </Link>
+        <div className="relative editable-region hidden lg:block">
+          <nav className="border-t border-neutral-200 bg-white/70">
+            <div className="container">
+              <div className="flex items-center justify-center py-2">
+                <div className="flex items-center gap-1">
+                  {topLevelLinks.map(([key, entry]) => (
+                    <Link
+                      key={key}
+                      href={entry.path}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                        isRouteActive(entry.path)
+                          ? "bg-[#1a7a6e]/10 text-[#0a4743]"
+                          : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+                      }`}
+                    >
+                      {entry.title}
+                      {entry.columns?.some((column) => column.items.some((item) => !item.hidden)) ? (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M2 4l4 4 4-4" />
+                        </svg>
+                      ) : null}
+                    </Link>
+                  ))}
+
+                  <Link
+                    href="/products/all"
+                    className="ml-2 inline-flex items-center justify-center rounded-lg bg-[#c0392b] px-5 py-2 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#962d22]"
+                  >
+                    View Products
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
+          </nav>
           <SectionEditButton
             visible={Boolean(session)}
             label="Navigation"
             onClick={() => openEditor("navigation")}
           />
-        </nav>
+        </div>
 
         {renderNavigationEditor()}
 
@@ -2086,28 +2233,33 @@ export default function StorefrontAdminApp({
           <>
             <button
               type="button"
-              className="drawer-overlay"
+              className="fixed inset-0 z-[1300] bg-black/30 lg:hidden"
               aria-label="Close navigation drawer"
               onClick={() => setMobileDrawerOpen(false)}
             />
-            <aside className="mobile-drawer" id="mobile-drawer">
-              <button
-                type="button"
-                className="drawer-close-btn"
-                onClick={() => setMobileDrawerOpen(false)}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
-              <div className="drawer-content">
-                <h2 className="drawer-title">Browse</h2>
+            <aside
+              className="fixed right-0 top-0 z-[1400] h-full w-full max-w-sm overflow-y-auto bg-white p-5 shadow-[0_0_40px_rgba(0,0,0,0.2)] lg:hidden"
+              id="mobile-drawer"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-neutral-900">Browse</h2>
+                <button
+                  type="button"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600"
+                  onClick={() => setMobileDrawerOpen(false)}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="grid gap-2">
                 {topLevelLinks.map(([key, entry]) => (
                   <Link
                     key={key}
                     href={entry.path}
-                    className="drawer-nav-link"
+                    className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-100"
                     onClick={() => setMobileDrawerOpen(false)}
                   >
                     {entry.title}
@@ -2115,16 +2267,22 @@ export default function StorefrontAdminApp({
                 ))}
                 <Link
                   href="/products/all"
-                  className="drawer-nav-link drawer-nav-cta"
+                  className="rounded-2xl bg-[#c0392b] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#962d22]"
                   onClick={() => setMobileDrawerOpen(false)}
                 >
                   View Products
                 </Link>
-                <div className="drawer-auth-section">
-                  <button type="button" className="drawer-auth-btn drawer-auth-outline">
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    className="rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-800"
+                  >
                     Login
                   </button>
-                  <button type="button" className="drawer-auth-btn drawer-auth-primary">
+                  <button
+                    type="button"
+                    className="rounded-2xl bg-[#1a7a6e] px-4 py-3 text-sm font-extrabold text-white"
+                  >
                     Register
                   </button>
                 </div>
@@ -2148,33 +2306,59 @@ export default function StorefrontAdminApp({
 
   function renderProductCard(product: Product, extraClassName?: string) {
     const imageUrl = assetUrl(product.image || "/images/mainlogo.png");
+    const brandLabel = product.brand?.trim() || "ALLREMOTES";
+    const productName = product.name?.trim() || "Replacement Remote";
 
     return (
-      <div key={product.id} className={`editable-card-wrapper${extraClassName ? ` ${extraClassName}` : ""}`}>
+      <div
+        key={product.id}
+        className={`editable-card-wrapper group relative flex h-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white/85 shadow-[0_18px_52px_rgba(15,23,42,0.08)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.12)]${extraClassName ? ` ${extraClassName}` : ""}`}
+      >
         <SectionEditButton
           visible={Boolean(session)}
           label="Product"
           onClick={() => openEditor(`product:${product.id}`)}
         />
-        <Link className="product-card product-card--shop" href={`/product/${product.id}`}>
-          <div className="image-box product-image-container">
-            <img className="product-image" src={imageUrl} alt={product.name} />
-            {!product.inStock ? <span className="out-of-stock-badge">Out of Stock</span> : null}
-          </div>
-          <div className="card-body product-info">
-            <div className="brand">{product.brand}</div>
-            <h3>{product.name}</h3>
-            <div className="price-row product-footer">
-              <ProductPrice product={product} currency={store?.settings.currency || "AUD"} />
-              <span className={`stock ${product.inStock ? "in" : "out"}`}>
-                {product.inStock ? "In Stock" : "Out"}
-              </span>
-            </div>
-            <span className="add-to-cart btn-add-cart">
-              Add to Cart
+        <Link className="absolute inset-0 z-10" href={`/product/${product.id}`} aria-label={`View details for ${productName}`} />
+        <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-white">
+          <img
+            className={`h-full w-full object-contain p-4 pt-11 transition-transform duration-300 group-hover:scale-110 sm:p-5 ${
+              !product.inStock ? "opacity-50" : ""
+            }`}
+            src={imageUrl}
+            alt={productName}
+          />
+          <div className="absolute left-3 top-3 right-12 z-20 flex flex-col gap-1.5">
+            <span
+              className={`inline-flex max-w-full items-center gap-2 self-start rounded-full px-3 py-1.5 text-xs font-extrabold ${
+                product.inStock
+                  ? "bg-[#1a7a6e]/10 text-[#0a4743]"
+                  : "bg-neutral-200 text-neutral-600"
+              }`}
+            >
+              {product.inStock ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#1a7a6e]" /> : null}
+              {product.inStock ? "In Stock" : "Out of Stock"}
             </span>
           </div>
-        </Link>
+        </div>
+        <div className="relative z-20 flex flex-1 flex-col bg-white p-4 sm:p-5">
+          <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-neutral-500 sm:text-xs">
+            {brandLabel}
+          </p>
+          <h3 className="mb-3 line-clamp-2 text-sm font-semibold leading-snug text-neutral-900 transition-colors group-hover:text-[#8b271f] sm:text-base">
+            {productName}
+          </h3>
+          <div className="mt-auto flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="text-base font-extrabold tracking-tight text-neutral-900 sm:text-lg">
+              {formatCurrency(product.price || 0, store?.settings.currency || "AUD")}
+            </div>
+            {product.inStock ? (
+              <span className="inline-flex w-full items-center justify-center rounded-lg bg-[#c0392b] px-4 py-2.5 text-xs font-extrabold text-white shadow-[0_12px_28px_rgba(192,57,43,0.18)] transition hover:bg-[#962d22] sm:w-auto">
+                Add to Cart
+              </span>
+            ) : null}
+          </div>
+        </div>
         {renderProductEditor(product)}
       </div>
     );
@@ -2185,44 +2369,159 @@ export default function StorefrontAdminApp({
       return null;
     }
 
+    const hero = store.homeContent.hero;
+    const features = store.homeContent.features;
+    const whyBuyCards = store.homeContent.whyBuy.length
+      ? store.homeContent.whyBuy
+      : [
+          {
+            icon: "shield",
+            title: "Quality Guaranteed",
+            description: "Every remote is checked for fit, finish, and reliable day-to-day use.",
+          },
+          {
+            icon: "truck",
+            title: "Fast Shipping",
+            description: "Responsive dispatch and practical support for trade and retail buyers.",
+          },
+          {
+            icon: "support",
+            title: "Support That Knows Remotes",
+            description: "Practical help with product identification and repeat ordering.",
+          },
+        ];
+    const reviews = store.reviews.length ? store.reviews.slice(0, 6) : FALLBACK_REVIEWS;
+    const cta = store.homeContent.ctaSection;
+    const heroImages = store.homeContent.heroImages.length
+      ? store.homeContent.heroImages
+      : ["/images/hero.jpg", "/images/heroimg.jpg"];
+    const carProductsCount = store.products.filter((product) => product.category === "car").length;
+    const garageProductsCount = store.products.filter((product) => product.category === "garage").length;
+    const heroSlides = heroImages.map((image, index) => {
+      const fallbackSlides = [
+        {
+          subtitle: hero.subtitle || "Quality is Guaranteed",
+          title: hero.title || "Garage Door & Gate Remotes",
+          description:
+            hero.description ||
+            "Your trusted source for premium car and garage remotes. Browse reliable replacements, accessories, and business-ready service support.",
+          primaryCta: hero.primaryCta || "Shop Car Remotes",
+          primaryCtaPath: hero.primaryCtaPath || "/products/car",
+          secondaryCta: hero.secondaryCta || "Shop Garage Remotes",
+          secondaryCtaPath: hero.secondaryCtaPath || "/products/garage",
+        },
+        {
+          subtitle: "Automotive remote keys",
+          title: "Replacement Car Keys & Smart Remotes",
+          description:
+            (carProductsCount > 0
+              ? `Browse ${carProductsCount}+ automotive remote options across smart keys, shells, and replacement key solutions. `
+              : "Browse automotive remote options across smart keys, shells, and replacement key solutions. ") +
+            "Built for clean fitment, dependable day-to-day use, and fast reordering.",
+          primaryCta: "Shop Automotive",
+          primaryCtaPath: "/products/car",
+          secondaryCta: "View All Products",
+          secondaryCtaPath: "/products/all",
+        },
+        {
+          subtitle: "Garage & gate access",
+          title: "Garage, Gate & Access Remotes",
+          description:
+            (garageProductsCount > 0
+              ? `Explore ${garageProductsCount}+ garage and gate remote options for home and trade access automation. `
+              : "Explore garage and gate remote options for home and trade access automation. ") +
+            "A practical range backed by responsive support and reliable fulfilment.",
+          primaryCta: "Shop Garage & Gate",
+          primaryCtaPath: "/products/garage",
+          secondaryCta: "Browse Best Sellers",
+          secondaryCtaPath: "/products/all",
+        },
+      ];
+
+      return {
+        image,
+        ...fallbackSlides[index % fallbackSlides.length],
+      };
+    });
+
     return (
-      <div className="home">
-        <section className="hero editable-region">
-          <div className="hero-slider">
-            {store.homeContent.heroImages.map((image, index) => (
-              <div
-                key={`${image}_${index}`}
-                className={`hero-slide${heroIndex === index ? " active" : ""}`}
-                style={{ backgroundImage: `url(${assetUrl(image)})` }}
-              />
-            ))}
-          </div>
-          <div className="hero-overlay" />
-          <div className="container">
-            <div className="hero-content">
-              <h1>{store.homeContent.hero.title}</h1>
-              <p className="hero-subtitle">{store.homeContent.hero.subtitle}</p>
-              <p className="hero-description">{store.homeContent.hero.description}</p>
-              <div className="hero-buttons">
-                <Link className="btn btn-hero-secondary" href={store.homeContent.hero.secondaryCtaPath}>
-                  {store.homeContent.hero.secondaryCta}
-                </Link>
-                <Link className="btn btn-hero-primary" href={store.homeContent.hero.primaryCtaPath}>
-                  {store.homeContent.hero.primaryCta}
-                </Link>
+      <div className="home animate-fadeIn">
+        <section className="relative overflow-hidden border-b border-neutral-200/70 editable-region">
+          <div className="relative h-[500px] sm:h-[540px] lg:h-[620px]">
+            <div className="absolute inset-0">
+              {heroSlides.map((slide, index) => (
+                <img
+                  key={`${slide.image}_${index}`}
+                  src={assetUrl(slide.image)}
+                  alt=""
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-out ${
+                    index === heroIndex ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              ))}
+              <div className="absolute inset-0 bg-gradient-to-r from-neutral-950/92 via-neutral-900/72 to-neutral-900/46" />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_15%,rgba(255,255,255,0.18),transparent_42%)]" />
+            </div>
+
+            <div className="container relative z-10 flex h-full items-center py-8 sm:py-10">
+              <div className="relative min-h-[320px] w-full max-w-4xl sm:min-h-[360px] lg:min-h-[390px]">
+                {heroSlides.map((slide, index) => (
+                  <div
+                    key={`hero-content-${index}`}
+                    className={`absolute inset-0 transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                      index === heroIndex
+                        ? "translate-y-0 opacity-100"
+                        : "pointer-events-none translate-y-3 opacity-0"
+                    }`}
+                  >
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#1a7a6e]/35 bg-[#1a7a6e]/15 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-[#7cd3c8] backdrop-blur-sm">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      {slide.subtitle}
+                    </div>
+                    <h1 className="mt-5 max-w-3xl text-[clamp(2rem,5vw,3.8rem)] font-extrabold leading-[1.1] tracking-[-0.03em] text-white">
+                      {slide.title}
+                    </h1>
+                    <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/85 sm:text-lg">
+                      {slide.description}
+                    </p>
+                    <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                      <Link
+                        href={slide.primaryCtaPath}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#c0392b] px-6 py-3.5 text-sm font-extrabold text-white shadow-[0_16px_36px_rgba(192,57,43,0.2)] transition-all hover:bg-[#962d22] sm:w-auto"
+                      >
+                        {slide.primaryCta}
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                      </Link>
+                      <Link
+                        href={slide.secondaryCtaPath}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/15 sm:w-auto"
+                      >
+                        {slide.secondaryCta}
+                      </Link>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-          <div className="hero-indicators">
-            {store.homeContent.heroImages.map((image, index) => (
-              <button
-                key={`${image}_indicator_${index}`}
-                type="button"
-                className={`indicator${heroIndex === index ? " active" : ""}`}
-                aria-label={`Go to slide ${index + 1}`}
-                onClick={() => setHeroIndex(index)}
-              />
-            ))}
+
+            <div className="absolute bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+              {heroSlides.map((slide, index) => (
+                <button
+                  key={`${slide.image}_indicator_${index}`}
+                  type="button"
+                  className={`h-2 rounded-full transition-all duration-500 ease-out ${
+                    index === heroIndex ? "w-8 bg-white" : "w-2 bg-white/45 hover:bg-white/70"
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                  onClick={() => setHeroIndex(index)}
+                />
+              ))}
+            </div>
           </div>
           <SectionEditButton
             visible={Boolean(session)}
@@ -2233,34 +2532,42 @@ export default function StorefrontAdminApp({
 
         {renderHeroEditor()}
 
-        <div className="trust-bar">
-          <div className="container">
-            <div className="trust-bar-inner">
-              {[...DEFAULT_TRUST_ITEMS, ...DEFAULT_TRUST_ITEMS].map((item, index) => (
-                <div key={`${item.label}_${index}`} className="trust-item">
-                  <span className="trust-item-icon">{item.icon}</span>
-                  <span>{item.label}</span>
-                </div>
-              ))}
+        <section className="container py-10 sm:py-14 editable-region">
+          <div className="grid gap-10">
+            <div className="max-w-2xl">
+              <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0a4743]">
+                Browse By Category
+              </span>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+                Start with the remote type you need
+              </h2>
+              <p className="mt-4 text-sm leading-7 text-neutral-600 sm:text-base">
+                Move through automotive, garage, gate, home, and locksmith ranges with clearer entry
+                points and business-ready product organization.
+              </p>
             </div>
-          </div>
-        </div>
-
-        <section className="features editable-region">
-          <div className="container">
-            <h2 className="section-title">Our Product Categories</h2>
-            <p className="section-subtitle">Discover the perfect remote for your needs</p>
-            <div className="features-grid">
-              {store.homeContent.features.map((feature, index) => (
-                <div key={`${feature.title}_${index}`} className="feature-card">
-                  <div className="feature-icon">
-                    {renderFeatureIcon(feature.icon, index, feature.title)}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map((feature, index) => (
+                <div
+                  key={`${feature.title}_${index}`}
+                  className="rounded-2xl border border-neutral-200 bg-white/80 p-6 shadow-[0_18px_52px_rgba(15,23,42,0.08)] backdrop-blur"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-neutral-200 bg-neutral-50 shadow-sm">
+                      <div className="h-10 w-10 overflow-hidden rounded-xl">
+                        {renderFeatureIcon(feature.icon, index, feature.title)}
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-base font-semibold text-neutral-900">{feature.title}</h3>
+                      <p className="mt-1 text-sm leading-6 text-neutral-600">{feature.description}</p>
+                    </div>
                   </div>
-                  <h3>{feature.title}</h3>
-                  <p>{feature.description}</p>
-                  <Link className="feature-link" href={feature.path}>
-                    {feature.linkText || "Explore →"}
-                  </Link>
+                  {feature.path ? (
+                    <Link href={feature.path} className="mt-5 inline-flex text-sm font-semibold text-[#0a4743] hover:text-[#1a7a6e]">
+                      {feature.linkText || "Explore"}
+                    </Link>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -2274,24 +2581,34 @@ export default function StorefrontAdminApp({
 
         {renderFeaturesEditor()}
 
-        <section className="featured-products editable-region">
-          <div className="container">
-            <h2 className="section-title">Featured Products</h2>
-            <p className="section-subtitle">Browse our most popular remote controls</p>
-            {featuredProducts.length ? (
-              <div className="products-grid">
-                {featuredProducts.map((product) => renderProductCard(product))}
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "24px 0", color: "var(--gray-dark)" }}>
-                No products available right now.
-              </div>
-            )}
-            <div className="view-all-link">
-              <Link className="btn btn-primary" href="/products/all">
-                View All Products
-              </Link>
+        <section className="container py-10 sm:py-14 editable-region">
+          <div className="max-w-2xl">
+            <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#8b271f]">
+              Best Sellers
+            </span>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+              Featured Products
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-neutral-600 sm:text-base">
+              Browse our most popular remote controls across car, garage, and access-control categories.
+            </p>
+          </div>
+          {featuredProducts.length ? (
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+              {featuredProducts.map((product) => renderProductCard(product))}
             </div>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-neutral-200 bg-white/70 p-6 text-sm font-semibold text-neutral-700">
+              No products available right now.
+            </div>
+          )}
+          <div className="mt-8">
+            <Link
+              href="/products/all"
+              className="inline-flex items-center justify-center rounded-full bg-[#c0392b] px-7 py-3 text-sm font-extrabold text-white shadow-[0_16px_36px_rgba(192,57,43,0.2)] hover:bg-[#962d22]"
+            >
+              View All Products
+            </Link>
           </div>
           <SectionEditButton
             visible={Boolean(session)}
@@ -2311,18 +2628,36 @@ export default function StorefrontAdminApp({
           ) : null}
         </section>
 
-        <section className="why-buy-section editable-region">
-          <div className="container">
-            <h2 className="section-title">Why Buy From ALLREMOTES?</h2>
-            <div className="why-buy-grid">
-              {store.homeContent.whyBuy.map((item, index) => (
-                <div key={`${item.title}_${index}`} className="why-buy-card">
-                  <div className="why-buy-icon">{item.icon}</div>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
+        <section className="container py-10 sm:py-14 editable-region">
+          <div className="max-w-2xl">
+            <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#0a4743]">
+              Why ALLREMOTES
+            </span>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+              Built for repeat orders and dependable support
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-neutral-600 sm:text-base">
+              The store is designed for straightforward product discovery, cleaner reorder flows, and
+              support that understands remote keys.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {whyBuyCards.map((item, index) => {
+              const WhyBuyIcon = resolveWhyBuyIcon(item, index);
+
+              return (
+                <div
+                  key={`${item.title}_${index}`}
+                  className="rounded-2xl border border-neutral-200 bg-white/80 p-6 shadow-[0_18px_52px_rgba(15,23,42,0.08)] backdrop-blur"
+                >
+                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a7a6e]/10 text-[#0a4743]">
+                    <WhyBuyIcon size={22} strokeWidth={2.1} />
+                  </div>
+                  <h3 className="text-base font-semibold text-neutral-900">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-neutral-600">{item.description}</p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
           <SectionEditButton
             visible={Boolean(session)}
@@ -2333,32 +2668,45 @@ export default function StorefrontAdminApp({
 
         {renderWhyBuyEditor()}
 
-        <section className="reviews-section editable-region">
-          <div className="container">
-            <h2 className="section-title">What Our Customers Say</h2>
-            <p className="section-subtitle">Real reviews from satisfied customers</p>
-            <div className="reviews-grid">
-              {store.reviews.map((review) => (
-                <div key={review.id} className="editable-card-wrapper">
-                  <SectionEditButton
-                    visible={Boolean(session)}
-                    label="Review"
-                    onClick={() => openEditor(`review:${review.id}`)}
-                  />
-                  <div className="review-card">
-                    <div className="review-rating">
-                      <span>{"★".repeat(Math.max(1, Math.min(5, review.rating)))}</span>
-                    </div>
-                    <p className="review-text">&quot;{review.text}&quot;</p>
-                    <div className="review-author">
-                      <strong>{review.author}</strong>
-                      <span>{review.verified ? "Verified Purchase" : "Customer Review"}</span>
-                    </div>
+        <section className="container py-10 sm:py-14 editable-region">
+          <div className="max-w-2xl">
+            <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#8b271f]">
+              Customer Feedback
+            </span>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+              Trusted by homeowners, workshops, and trade buyers
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-neutral-600 sm:text-base">
+              Real reviews from customers ordering replacement remotes, smart keys, and access-control
+              products.
+            </p>
+          </div>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {reviews.map((review) => (
+              <div key={review.id} className="editable-card-wrapper">
+                <SectionEditButton
+                  visible={Boolean(session)}
+                  label="Review"
+                  onClick={() => openEditor(`review:${review.id}`)}
+                />
+                <div className="rounded-2xl border border-neutral-200 bg-white/80 p-6 shadow-sm backdrop-blur">
+                  <div className="text-sm font-extrabold text-[#c0392b]">
+                    <span>{"★".repeat(Math.max(1, Math.min(5, review.rating)))}</span>
+                    <span className="text-neutral-300">
+                      {"☆".repeat(5 - Math.max(1, Math.min(5, review.rating)))}
+                    </span>
                   </div>
-                  {renderReviewEditor(review)}
+                  <p className="mt-4 text-sm leading-7 text-neutral-700">&quot;{review.text}&quot;</p>
+                  <div className="mt-5 flex items-center justify-between gap-3">
+                    <strong className="text-sm font-semibold text-neutral-900">{review.author}</strong>
+                    <span className="rounded-full bg-[#1a7a6e]/10 px-3 py-1 text-xs font-semibold text-[#0a4743]">
+                      {review.verified ? "Verified Purchase" : "Customer Review"}
+                    </span>
+                  </div>
                 </div>
-              ))}
-            </div>
+                {renderReviewEditor(review)}
+              </div>
+            ))}
           </div>
           <SectionEditButton
             visible={Boolean(session)}
@@ -2378,17 +2726,20 @@ export default function StorefrontAdminApp({
           ) : null}
         </section>
 
-        <section
-          className="cta-section editable-region"
-          style={{ backgroundImage: `url(${assetUrl("/images/heroimg2.jpg")})` }}
-        >
-          <div className="cta-overlay" />
-          <div className="container">
-            <div className="cta-content">
-              <h2>{store.homeContent.ctaSection.title}</h2>
-              <p>{store.homeContent.ctaSection.description}</p>
-              <Link className="btn btn-hero-primary btn-large" href={store.homeContent.ctaSection.buttonPath}>
-                {store.homeContent.ctaSection.buttonText}
+        <section className="container py-10 sm:py-14 editable-region">
+          <div className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-[radial-gradient(130%_120%_at_2%_0%,rgba(26,122,110,0.30)_0%,rgba(26,122,110,0.10)_40%,transparent_68%),radial-gradient(110%_120%_at_100%_4%,rgba(192,57,43,0.24)_0%,rgba(192,57,43,0.08)_46%,transparent_74%),linear-gradient(102deg,rgba(26,122,110,0.14)_0%,rgba(60,150,151,0.12)_52%,rgba(192,57,43,0.14)_100%)] p-8 shadow-[0_18px_52px_rgba(15,23,42,0.08)] backdrop-blur sm:p-12">
+            <div className="max-w-2xl">
+              <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
+                {cta.title || "Ready to Find Your Perfect Remote?"}
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-neutral-600 sm:text-base">
+                {cta.description || "Browse our collection and find the perfect remote for your needs"}
+              </p>
+              <Link
+                href={cta.buttonPath || "/products/all"}
+                className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[#c0392b] px-8 py-4 text-base font-extrabold text-white shadow-[0_16px_36px_rgba(192,57,43,0.2)] hover:bg-[#962d22] sm:w-auto"
+              >
+                {cta.buttonText || "View All Products"}
               </Link>
             </div>
           </div>
@@ -2862,45 +3213,115 @@ export default function StorefrontAdminApp({
   }
 
   function renderFooter() {
+    const companyLinks = [
+      { href: settingsContent.privacyPath, label: settingsContent.privacyLabel },
+      { href: settingsContent.supportLinkPath, label: "Shipping & Delivery" },
+      { href: settingsContent.supportLinkPath, label: "Returns & Warranty" },
+      { href: settingsContent.supportLinkPath, label: "Safe & Secure Checkout" },
+    ];
+
     return (
-      <footer className="footer editable-region">
-        <div className="container">
-          <div className="footer-content">
-            <div className="footer-section">
-              <h3>{settingsContent.brandTitle}</h3>
-              <p>{settingsContent.brandSubtitle}</p>
-              <p className="footer-tagline">{settingsContent.footerTagline}</p>
+      <footer className="relative mt-0 overflow-hidden text-white editable-region [background:radial-gradient(circle_at_6%_18%,rgba(10,71,67,0.48),transparent_30%),radial-gradient(circle_at_94%_18%,rgba(126,32,43,0.42),transparent_34%),linear-gradient(100deg,#0d2020_0%,#272326_48%,#5d1f29_100%)]">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.02),transparent_36%)]" />
+
+        <div className="container relative z-10 py-12 sm:py-14">
+          <div className="grid items-start gap-8 sm:gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,2.85fr)] lg:gap-14">
+            <section className="grid min-w-0 content-start justify-items-center gap-4 text-center lg:justify-items-start lg:text-left">
+              <Link href="/" className="inline-flex w-fit max-w-full items-center" aria-label="ALLREMOTES home">
+                <img
+                  src={assetUrl("/images/mainlogo.png")}
+                  alt="ALLREMOTES"
+                  className="h-[3.1rem] w-auto max-w-full brightness-0 invert sm:h-[3.5rem]"
+                />
+              </Link>
+              <p className="max-w-[22rem] text-[0.98rem] leading-7 text-white/80">
+                {settingsContent.footerTagline}
+              </p>
+            </section>
+
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-12">
+              <section className="min-w-0">
+                <h4 className="mb-5 text-xs font-extrabold uppercase tracking-[0.14em] text-white/95">
+                  {settingsContent.categoriesTitle}
+                </h4>
+                <ul className="grid gap-4">
+                  {footerCategoryEntries().map(({ key, entry }) => (
+                    <li key={key}>
+                      <Link href={entry.path} className="inline-flex items-center text-[0.98rem] leading-snug text-white/70 hover:text-white">
+                        {entry.title}
+                      </Link>
+                    </li>
+                  ))}
+                  <li>
+                    <Link href="/products/all" className="inline-flex items-center text-[0.98rem] leading-snug text-white/70 hover:text-white">
+                      All Products
+                    </Link>
+                  </li>
+                </ul>
+              </section>
+
+              <section className="min-w-0">
+                <h4 className="mb-5 text-xs font-extrabold uppercase tracking-[0.14em] text-white/95">
+                  {settingsContent.supportTitle}
+                </h4>
+                <ul className="grid gap-4">
+                  <li>
+                    <Link href={settingsContent.supportLinkPath} className="inline-flex items-center text-[0.98rem] leading-snug text-white/70 hover:text-white">
+                      {settingsContent.supportLinkLabel}
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href={settingsContent.contactLinkPath} className="inline-flex items-center text-[0.98rem] leading-snug text-white/70 hover:text-white">
+                      {settingsContent.contactLinkLabel}
+                    </Link>
+                  </li>
+                  <li>
+                    <a href={`mailto:${store?.settings.siteEmail || settingsContent.supportLinkLabel}`} className="inline-flex items-center text-[0.98rem] leading-snug text-white/70 hover:text-white">
+                      {store?.settings.siteEmail}
+                    </a>
+                  </li>
+                </ul>
+              </section>
+
+              <section className="min-w-0">
+                <h4 className="mb-5 text-xs font-extrabold uppercase tracking-[0.14em] text-white/95">
+                  {settingsContent.privacyTitle}
+                </h4>
+                <ul className="grid gap-4">
+                  {companyLinks.map((item) => (
+                    <li key={item.label}>
+                      <Link href={item.href} className="inline-flex items-center text-[0.98rem] leading-snug text-white/70 hover:text-white">
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
-            <div className="footer-section">
-              <h4>{settingsContent.categoriesTitle}</h4>
-              {footerCategoryEntries().map(({ key, entry }) => (
-                <Link key={key} href={entry.path}>
-                  {entry.title}
-                </Link>
+          </div>
+
+          <div className="mt-10 flex flex-col gap-4 border-t border-white/15 pt-6 lg:mt-12 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap gap-3">
+              {["30 Day Returns", "Trade Support", "Secure Payments"].map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-white/15 bg-white/[0.03] px-4 text-[0.94rem] font-medium text-white/75 max-[480px]:w-full"
+                >
+                  {item}
+                </span>
               ))}
             </div>
-            <div className="footer-section">
-              <h4>{settingsContent.privacyTitle}</h4>
-              <Link href={settingsContent.privacyPath}>{settingsContent.privacyLabel}</Link>
-            </div>
-            <div className="footer-section">
-              <h4>{settingsContent.supportTitle}</h4>
-              <Link href={settingsContent.supportLinkPath}>{settingsContent.supportLinkLabel}</Link>
-              <Link href={settingsContent.contactLinkPath}>{settingsContent.contactLinkLabel}</Link>
-              <p>Email: {store?.settings.siteEmail}</p>
-              <p>Phone: {settingsContent.supportPhone}</p>
-            </div>
+
+            <p className="text-[0.96rem] text-white/45 lg:text-right">{settingsContent.footerCopyright}</p>
           </div>
-          <div className="footer-bottom">
-            <p>{settingsContent.footerCopyright}</p>
-          </div>
+
+          <SectionEditButton
+            visible={Boolean(session)}
+            label="Footer"
+            onClick={() => openEditor("footer")}
+          />
+          {renderFooterEditor()}
         </div>
-        <SectionEditButton
-          visible={Boolean(session)}
-          label="Footer"
-          onClick={() => openEditor("footer")}
-        />
-        {renderFooterEditor()}
       </footer>
     );
   }
