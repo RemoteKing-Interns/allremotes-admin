@@ -157,11 +157,31 @@ const FOOTER_CATEGORY_KEYS = [
   "shop-by-brand",
 ] as const;
 const HERO_BACKGROUND_SWATCHES = [
-  ["#2e6b6f", "#2e6b6f", "#a0312d"],
-  ["#153b50", "#265e73", "#2e6b6f"],
-  ["#5a2a27", "#a0312d", "#d16455"],
-  ["#22343c", "#2e6b6f", "#4d968a"],
-];
+  {
+    id: "navy",
+    label: "Dark Navy",
+    swatch: "#153b50",
+    colors: ["#153b50", "#265e73", "#0f2736"],
+  },
+  {
+    id: "teal",
+    label: "Teal",
+    swatch: "#2e6b6f",
+    colors: ["#2e6b6f", "#2e6b6f", "#a0312d"],
+  },
+  {
+    id: "red",
+    label: "Red",
+    swatch: "#a0312d",
+    colors: ["#5a2a27", "#a0312d", "#d16455"],
+  },
+  {
+    id: "black",
+    label: "Black",
+    swatch: "#111111",
+    colors: ["#111111", "#1f2937", "#000000"],
+  },
+] as const;
 
 type DirtyKey =
   | "home"
@@ -409,6 +429,60 @@ function ToggleInput(props: {
   );
 }
 
+function DeleteIconButton(props: {
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="inline-editor-icon-button"
+      onClick={props.onClick}
+      aria-label={props.label}
+      title={props.label}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 6h18" />
+        <path d="M8 6V4.75C8 4.06 8.56 3.5 9.25 3.5h5.5c.69 0 1.25.56 1.25 1.25V6" />
+        <path d="M18 6v13.25c0 .69-.56 1.25-1.25 1.25h-9.5C6.56 20.5 6 19.94 6 19.25V6" />
+        <path d="M10 10.5v6" />
+        <path d="M14 10.5v6" />
+      </svg>
+    </button>
+  );
+}
+
+function AddItemButton(props: {
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="inline-editor-add-button"
+      onClick={props.onClick}
+    >
+      {props.children}
+    </button>
+  );
+}
+
+function RepeatableCard(props: {
+  deleteLabel: string;
+  onDelete: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="inline-editor-card">
+      <div className="inline-editor-card__header">
+        <div className="inline-editor-card__spacer" />
+        <DeleteIconButton label={props.deleteLabel} onClick={props.onDelete} />
+      </div>
+      <div className="inline-editor-card__body">{props.children}</div>
+    </div>
+  );
+}
+
 function EditorPanel(props: {
   editor: EditorKey;
   title: string;
@@ -423,10 +497,7 @@ function EditorPanel(props: {
   return (
     <aside className="inline-editor-panel" aria-label={`${props.title} editor`}>
       <div className="inline-editor-panel__header">
-        <div>
-          <strong>{props.title}</strong>
-          {props.description ? <p>{props.description}</p> : null}
-        </div>
+        <strong>{props.title}</strong>
         <button
           type="button"
           className="inline-editor-close"
@@ -507,6 +578,9 @@ export default function StorefrontAdminApp({
   const [toast, setToast] = useState<ToastState>(null);
   const [savingTarget, setSavingTarget] = useState<DirtyKey | "publish" | null>(null);
   const [activeEditor, setActiveEditor] = useState<EditorKey | null>(null);
+  const [expandedNavigationSections, setExpandedNavigationSections] = useState<
+    Partial<Record<string, boolean>>
+  >({});
   const [dirtySections, setDirtySections] = useState<Partial<Record<DirtyKey, true>>>({});
   const [deletedReviewIds, setDeletedReviewIds] = useState<string[]>([]);
   const [heroIndex, setHeroIndex] = useState(0);
@@ -783,13 +857,13 @@ export default function StorefrontAdminApp({
       }
       setToast({
         tone: "success",
-        message: "Saved successfully",
+        message: "Changes saved",
       });
       return true;
     } catch {
       setToast({
         tone: "error",
-        message: "Save failed — please try again",
+        message: "Save failed",
       });
       return false;
     } finally {
@@ -1048,6 +1122,144 @@ export default function StorefrontAdminApp({
     }));
   }
 
+  function isNavigationSectionExpanded(sectionKey: string) {
+    return expandedNavigationSections[sectionKey] ?? true;
+  }
+
+  function toggleNavigationSectionExpanded(sectionKey: string) {
+    setExpandedNavigationSections((current) => ({
+      ...current,
+      [sectionKey]: !(current[sectionKey] ?? true),
+    }));
+  }
+
+  function navigationItemsForSection(section: NavigationSectionEntry) {
+    return (section.columns ?? []).flatMap((column, columnIndex) =>
+      column.items.map((item, itemIndex) => ({
+        columnIndex,
+        itemIndex,
+        item,
+      })),
+    );
+  }
+
+  function updateNavigationItem(
+    sectionKey: string,
+    columnIndex: number,
+    itemIndex: number,
+    patch: Partial<NavigationItem>,
+  ) {
+    updateNavigation((current) => {
+      const section = current[sectionKey];
+
+      if (!section) {
+        return current;
+      }
+
+      const columns = (section.columns ?? []).map((column, currentColumnIndex) => {
+        if (currentColumnIndex !== columnIndex) {
+          return column;
+        }
+
+        return {
+          ...column,
+          items: column.items.map((item, currentItemIndex) =>
+            currentItemIndex === itemIndex ? { ...item, ...patch } : item,
+          ),
+        };
+      });
+
+      return {
+        ...current,
+        [sectionKey]: {
+          ...section,
+          columns,
+        },
+      };
+    });
+  }
+
+  function addNavigationItem(sectionKey: string) {
+    updateNavigation((current) => {
+      const section = current[sectionKey];
+
+      if (!section) {
+        return current;
+      }
+
+      const columns =
+        section.columns && section.columns.length
+          ? section.columns.map((column) => ({
+              ...column,
+              items: [...column.items],
+            }))
+          : [{ title: "Links", items: [] }];
+
+      columns[0] = {
+        ...columns[0],
+        items: [
+          ...columns[0].items,
+          {
+            name: "",
+            path: "/",
+            hidden: false,
+          },
+        ],
+      };
+
+      return {
+        ...current,
+        [sectionKey]: {
+          ...section,
+          columns,
+          hasDropdown: true,
+        },
+      };
+    });
+  }
+
+  function removeNavigationItem(sectionKey: string, columnIndex: number, itemIndex: number) {
+    updateNavigation((current) => {
+      const section = current[sectionKey];
+
+      if (!section) {
+        return current;
+      }
+
+      const columns = (section.columns ?? []).map((column, currentColumnIndex) => {
+        if (currentColumnIndex !== columnIndex) {
+          return column;
+        }
+
+        return {
+          ...column,
+          items: column.items.filter((_, currentItemIndex) => currentItemIndex !== itemIndex),
+        };
+      });
+
+      return {
+        ...current,
+        [sectionKey]: {
+          ...section,
+          columns,
+        },
+      };
+    });
+  }
+
+  function removeNavigationSection(sectionKey: string) {
+    updateNavigation((current) => {
+      const next = { ...current };
+      delete next[sectionKey];
+      return next;
+    });
+    setExpandedNavigationSections((current) => {
+      const next = { ...current };
+      delete next[sectionKey];
+      return next;
+    });
+  }
+
   function addNavigationSection() {
     const sectionKey = `nav_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -1055,14 +1267,31 @@ export default function StorefrontAdminApp({
       return {
         ...current,
         [sectionKey]: {
-          title: "New Link",
-          path: "/new-link",
+          title: "New Section",
+          path: "/new-section",
           hidden: false,
-          columns: [],
+          columns: [{ title: "Links", items: [] }],
         },
       };
     });
+    setExpandedNavigationSections((current) => ({
+      ...current,
+      [sectionKey]: true,
+    }));
     setActiveEditor("navigation");
+  }
+
+  function primaryHeroImage() {
+    return store?.homeContent.heroImages[0] ?? "";
+  }
+
+  function updatePrimaryHeroImage(value: string) {
+    updateHome((current) => ({
+      ...current,
+      heroImages: current.heroImages.length
+        ? [value, ...current.heroImages.slice(1)]
+        : [value],
+    }));
   }
 
   function updateProduct(productId: string, patch: Partial<Product>) {
@@ -1155,49 +1384,122 @@ export default function StorefrontAdminApp({
       >
         <div className="inline-editor-stack">
           {Object.entries(store.navigation).map(([sectionKey, section]) => (
-            <div key={sectionKey} className="inline-editor-card">
-              <div className="inline-editor-grid">
-                <EditorField label="Label">
-                  <input
-                    value={section.title}
-                    onChange={(event) =>
-                      updateNavigationSection(sectionKey, { title: event.target.value })
-                    }
-                  />
-                </EditorField>
-                <EditorField label="Path">
-                  <input
-                    value={section.path}
-                    onChange={(event) =>
-                      updateNavigationSection(sectionKey, { path: event.target.value })
-                    }
-                  />
-                </EditorField>
-                <EditorField label="Show / Hide">
-                  <ToggleInput
-                    checked={!section.hidden}
-                    onChange={(checked) =>
-                      updateNavigationSection(sectionKey, { hidden: !checked })
-                    }
-                    label={section.hidden ? "Hidden" : "Visible"}
-                  />
-                </EditorField>
+            <div key={sectionKey} className="inline-editor-accordion">
+              <div className="inline-editor-accordion__header">
+                <button
+                  type="button"
+                  className="inline-editor-accordion__trigger"
+                  onClick={() => toggleNavigationSectionExpanded(sectionKey)}
+                  aria-expanded={isNavigationSectionExpanded(sectionKey)}
+                >
+                  <span>{section.title || "Untitled Section"}</span>
+                  <svg
+                    className={`inline-editor-accordion__chevron${
+                      isNavigationSectionExpanded(sectionKey)
+                        ? " inline-editor-accordion__chevron--open"
+                        : ""
+                    }`}
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <path d="m6 8 4 4 4-4" />
+                  </svg>
+                </button>
+                <DeleteIconButton
+                  label={`Delete ${section.title || "section"}`}
+                  onClick={() => removeNavigationSection(sectionKey)}
+                />
               </div>
-              <button
-                type="button"
-                className="inline-editor-action inline-editor-action--danger"
-                onClick={() =>
-                  updateNavigation((current) => {
-                    const next = { ...current };
-                    delete next[sectionKey];
-                    return next;
-                  })
-                }
-              >
-                Delete Link
-              </button>
+
+              {isNavigationSectionExpanded(sectionKey) ? (
+                <div className="inline-editor-accordion__body">
+                  <div className="inline-editor-grid">
+                    <EditorField label="Section Title">
+                      <input
+                        value={section.title}
+                        onChange={(event) =>
+                          updateNavigationSection(sectionKey, { title: event.target.value })
+                        }
+                      />
+                    </EditorField>
+                    <EditorField label="Path">
+                      <input
+                        value={section.path}
+                        onChange={(event) =>
+                          updateNavigationSection(sectionKey, { path: event.target.value })
+                        }
+                      />
+                    </EditorField>
+                    <EditorField label="Show / Hide">
+                      <ToggleInput
+                        checked={!section.hidden}
+                        onChange={(checked) =>
+                          updateNavigationSection(sectionKey, { hidden: !checked })
+                        }
+                        label={section.hidden ? "Hidden" : "Visible"}
+                      />
+                    </EditorField>
+                  </div>
+
+                  <div className="inline-editor-stack">
+                    {navigationItemsForSection(section).map(
+                      ({ columnIndex, itemIndex, item }) => (
+                        <RepeatableCard
+                          key={`${sectionKey}_${columnIndex}_${itemIndex}_${item.path}`}
+                          deleteLabel={`Delete ${item.name || "navigation item"}`}
+                          onDelete={() =>
+                            removeNavigationItem(sectionKey, columnIndex, itemIndex)
+                          }
+                        >
+                          <div className="inline-editor-grid">
+                            <EditorField label="Label">
+                              <input
+                                value={item.name}
+                                onChange={(event) =>
+                                  updateNavigationItem(sectionKey, columnIndex, itemIndex, {
+                                    name: event.target.value,
+                                  })
+                                }
+                              />
+                            </EditorField>
+                            <EditorField label="Path">
+                              <input
+                                value={item.path}
+                                onChange={(event) =>
+                                  updateNavigationItem(sectionKey, columnIndex, itemIndex, {
+                                    path: event.target.value,
+                                  })
+                                }
+                              />
+                            </EditorField>
+                            <EditorField label="Show / Hide">
+                              <ToggleInput
+                                checked={!item.hidden}
+                                onChange={(checked) =>
+                                  updateNavigationItem(sectionKey, columnIndex, itemIndex, {
+                                    hidden: !checked,
+                                  })
+                                }
+                                label={item.hidden ? "Hidden" : "Visible"}
+                              />
+                            </EditorField>
+                          </div>
+                        </RepeatableCard>
+                      ),
+                    )}
+                  </div>
+
+                  <AddItemButton onClick={() => addNavigationItem(sectionKey)}>
+                    + Add item
+                  </AddItemButton>
+                </div>
+              ) : null}
             </div>
           ))}
+
+          <AddItemButton onClick={addNavigationSection}>+ Add section</AddItemButton>
         </div>
       </EditorPanel>
     );
@@ -1220,55 +1522,56 @@ export default function StorefrontAdminApp({
         saving={savingTarget === "promotions" || savingTarget === "publish"}
       >
         <div className="inline-editor-stack">
-          <ToggleInput
-            checked={store.promotions.topInfoBar.enabled}
-            onChange={(checked) =>
-              updatePromotions((current) => ({
-                ...current,
-                topInfoBar: {
-                  ...current.topInfoBar,
-                  enabled: checked,
-                },
-              }))
-            }
-            label={store.promotions.topInfoBar.enabled ? "Enabled" : "Disabled"}
-          />
+          <EditorField label="Enabled">
+            <ToggleInput
+              checked={store.promotions.topInfoBar.enabled}
+              onChange={(checked) =>
+                updatePromotions((current) => ({
+                  ...current,
+                  topInfoBar: {
+                    ...current.topInfoBar,
+                    enabled: checked,
+                  },
+                }))
+              }
+              label={store.promotions.topInfoBar.enabled ? "Enabled" : "Disabled"}
+            />
+          </EditorField>
           {store.promotions.topInfoBar.items.map((item, index) => (
-            <div key={`${item}_${index}`} className="inline-editor-row">
-              <input
-                value={item}
-                onChange={(event) =>
-                  updatePromotions((current) => ({
-                    ...current,
-                    topInfoBar: {
-                      ...current.topInfoBar,
-                      items: current.topInfoBar.items.map((entry, currentIndex) =>
-                        currentIndex === index ? event.target.value : entry,
-                      ),
-                    },
-                  }))
-                }
-              />
-              <button
-                type="button"
-                className="inline-editor-action inline-editor-action--danger"
-                onClick={() =>
-                  updatePromotions((current) => ({
-                    ...current,
-                    topInfoBar: {
-                      ...current.topInfoBar,
-                      items: current.topInfoBar.items.filter((_, currentIndex) => currentIndex !== index),
-                    },
-                  }))
-                }
-              >
-                Delete
-              </button>
-            </div>
+            <RepeatableCard
+              key={`${item}_${index}`}
+              deleteLabel={`Delete top bar item ${index + 1}`}
+              onDelete={() =>
+                updatePromotions((current) => ({
+                  ...current,
+                  topInfoBar: {
+                    ...current.topInfoBar,
+                    items: current.topInfoBar.items.filter(
+                      (_, currentIndex) => currentIndex !== index,
+                    ),
+                  },
+                }))
+              }
+            >
+              <EditorField label="Text Item">
+                <input
+                  value={item}
+                  onChange={(event) =>
+                    updatePromotions((current) => ({
+                      ...current,
+                      topInfoBar: {
+                        ...current.topInfoBar,
+                        items: current.topInfoBar.items.map((entry, currentIndex) =>
+                          currentIndex === index ? event.target.value : entry,
+                        ),
+                      },
+                    }))
+                  }
+                />
+              </EditorField>
+            </RepeatableCard>
           ))}
-          <button
-            type="button"
-            className="inline-editor-action"
+          <AddItemButton
             onClick={() =>
               updatePromotions((current) => ({
                 ...current,
@@ -1279,8 +1582,8 @@ export default function StorefrontAdminApp({
               }))
             }
           >
-            Add Text Item
-          </button>
+            + Add item
+          </AddItemButton>
         </div>
       </EditorPanel>
     );
@@ -1290,6 +1593,8 @@ export default function StorefrontAdminApp({
     if (!store || activeEditor !== "hero") {
       return null;
     }
+
+    const heroImage = primaryHeroImage();
 
     return (
       <EditorPanel
@@ -1303,35 +1608,52 @@ export default function StorefrontAdminApp({
         saving={savingTarget === "home" || savingTarget === "publish"}
       >
         <div className="inline-editor-stack">
-          <div className="inline-editor-stack">
-            <EditorField label="Heading">
-              <input
-                value={store.homeContent.hero.title}
-                onChange={(event) =>
-                  updateHome((current) => ({
-                    ...current,
-                    hero: {
-                      ...current.hero,
-                      title: event.target.value,
-                    },
-                  }))
-                }
-              />
-            </EditorField>
-            <EditorField label="Subheading">
-              <input
-                value={store.homeContent.hero.subtitle}
-                onChange={(event) =>
-                  updateHome((current) => ({
-                    ...current,
-                    hero: {
-                      ...current.hero,
-                      subtitle: event.target.value,
-                    },
-                  }))
-                }
-              />
-            </EditorField>
+          <EditorField label="Heading">
+            <textarea
+              rows={3}
+              value={store.homeContent.hero.title}
+              onChange={(event) =>
+                updateHome((current) => ({
+                  ...current,
+                  hero: {
+                    ...current.hero,
+                    title: event.target.value,
+                  },
+                }))
+              }
+            />
+          </EditorField>
+          <EditorField label="Subheading">
+            <textarea
+              rows={3}
+              value={store.homeContent.hero.subtitle}
+              onChange={(event) =>
+                updateHome((current) => ({
+                  ...current,
+                  hero: {
+                    ...current.hero,
+                    subtitle: event.target.value,
+                  },
+                }))
+              }
+            />
+          </EditorField>
+          <EditorField label="Supporting Copy">
+            <textarea
+              rows={3}
+              value={store.homeContent.hero.description}
+              onChange={(event) =>
+                updateHome((current) => ({
+                  ...current,
+                  hero: {
+                    ...current.hero,
+                    description: event.target.value,
+                  },
+                }))
+              }
+            />
+          </EditorField>
+          <div className="inline-editor-grid inline-editor-grid--split">
             <EditorField label="Primary Button Text">
               <input
                 value={store.homeContent.hero.primaryCta}
@@ -1360,6 +1682,8 @@ export default function StorefrontAdminApp({
                 }
               />
             </EditorField>
+          </div>
+          <div className="inline-editor-grid inline-editor-grid--split">
             <EditorField label="Secondary Button Text">
               <input
                 value={store.homeContent.hero.secondaryCta}
@@ -1388,40 +1712,55 @@ export default function StorefrontAdminApp({
                 }
               />
             </EditorField>
-            <div className="inline-editor-subsection">
-              <strong>Background Color Swatches</strong>
-              <div className="hero-swatch-grid">
-                {HERO_BACKGROUND_SWATCHES.map((colors) => {
-                  const isActive =
-                    JSON.stringify(colors) ===
-                    JSON.stringify(store.homeContent.hero.backgroundColors);
-
-                  return (
-                    <button
-                      key={colors.join("_")}
-                      type="button"
-                      className={`hero-swatch${isActive ? " hero-swatch--active" : ""}`}
-                      onClick={() =>
-                        updateHome((current) => ({
-                          ...current,
-                          hero: {
-                            ...current.hero,
-                            backgroundColors: colors,
-                          },
-                        }))
-                      }
-                    >
-                      {colors.map((color) => (
-                        <span
-                          key={color}
-                          className="hero-swatch__chip"
-                          style={{ background: color }}
-                        />
-                      ))}
-                    </button>
-                  );
-                })}
+          </div>
+          <EditorField label="Image URL">
+            <div className="inline-editor-preview-row">
+              <input
+                value={heroImage}
+                onChange={(event) => updatePrimaryHeroImage(event.target.value)}
+              />
+              <div className="inline-editor-thumbnail">
+                {heroImage ? <img src={assetUrl(heroImage)} alt="Hero preview" /> : <span>No image</span>}
               </div>
+            </div>
+          </EditorField>
+          <div className="inline-editor-subsection">
+            <strong>Background Color Swatches</strong>
+            <div className="hero-swatch-grid">
+              {HERO_BACKGROUND_SWATCHES.map((swatch) => {
+                const isActive =
+                  JSON.stringify(swatch.colors) ===
+                  JSON.stringify(store.homeContent.hero.backgroundColors);
+
+                return (
+                  <button
+                    key={swatch.id}
+                    type="button"
+                    className={`hero-swatch${isActive ? " hero-swatch--active" : ""}`}
+                    onClick={() =>
+                      updateHome((current) => ({
+                        ...current,
+                        hero: {
+                          ...current.hero,
+                          backgroundColors: [...swatch.colors],
+                        },
+                      }))
+                    }
+                    aria-label={swatch.label}
+                    title={swatch.label}
+                  >
+                    <span
+                      className="hero-swatch__chip"
+                      style={{ background: swatch.swatch }}
+                    />
+                    {isActive ? (
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="m5.5 10 3 3 6-6" />
+                      </svg>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1458,7 +1797,16 @@ export default function StorefrontAdminApp({
             />
           </EditorField>
           {store.homeContent.features.map((feature, index) => (
-            <div key={`${feature.title}_${index}`} className="inline-editor-card">
+            <RepeatableCard
+              key={`${feature.title}_${index}`}
+              deleteLabel={`Delete feature card ${index + 1}`}
+              onDelete={() =>
+                updateHome((current) => ({
+                  ...current,
+                  features: current.features.filter((_, currentIndex) => currentIndex !== index),
+                }))
+              }
+            >
               <div className="inline-editor-grid">
                 <EditorField label="Icon">
                   <input
@@ -1529,23 +1877,9 @@ export default function StorefrontAdminApp({
                   />
                 </EditorField>
               </div>
-              <button
-                type="button"
-                className="inline-editor-action inline-editor-action--danger"
-                onClick={() =>
-                  updateHome((current) => ({
-                    ...current,
-                    features: current.features.filter((_, currentIndex) => currentIndex !== index),
-                  }))
-                }
-              >
-                Delete Card
-              </button>
-            </div>
+            </RepeatableCard>
           ))}
-          <button
-            type="button"
-            className="inline-editor-action"
+          <AddItemButton
             onClick={() =>
               updateHome((current) => ({
                 ...current,
@@ -1562,8 +1896,8 @@ export default function StorefrontAdminApp({
               }))
             }
           >
-            Add Feature Card
-          </button>
+            + Add item
+          </AddItemButton>
         </div>
       </EditorPanel>
     );
@@ -1587,7 +1921,16 @@ export default function StorefrontAdminApp({
       >
         <div className="inline-editor-stack">
           {store.homeContent.whyBuy.map((item, index) => (
-            <div key={`${item.title}_${index}`} className="inline-editor-card">
+            <RepeatableCard
+              key={`${item.title}_${index}`}
+              deleteLabel={`Delete why buy item ${index + 1}`}
+              onDelete={() =>
+                updateHome((current) => ({
+                  ...current,
+                  whyBuy: current.whyBuy.filter((_, currentIndex) => currentIndex !== index),
+                }))
+              }
+            >
               <div className="inline-editor-grid">
                 <EditorField label="Icon">
                   <input
@@ -1632,23 +1975,9 @@ export default function StorefrontAdminApp({
                   />
                 </EditorField>
               </div>
-              <button
-                type="button"
-                className="inline-editor-action inline-editor-action--danger"
-                onClick={() =>
-                  updateHome((current) => ({
-                    ...current,
-                    whyBuy: current.whyBuy.filter((_, currentIndex) => currentIndex !== index),
-                  }))
-                }
-              >
-                Delete Item
-              </button>
-            </div>
+            </RepeatableCard>
           ))}
-          <button
-            type="button"
-            className="inline-editor-action"
+          <AddItemButton
             onClick={() =>
               updateHome((current) => ({
                 ...current,
@@ -1663,8 +1992,8 @@ export default function StorefrontAdminApp({
               }))
             }
           >
-            Add Item
-          </button>
+            + Add item
+          </AddItemButton>
         </div>
       </EditorPanel>
     );
@@ -1833,7 +2162,11 @@ export default function StorefrontAdminApp({
       >
         <div className="inline-editor-stack">
           {store.reviews.map((review) => (
-            <div key={review.id} className="inline-editor-card">
+            <RepeatableCard
+              key={review.id}
+              deleteLabel={`Delete ${review.author || "review"}`}
+              onDelete={() => removeReview(review.id)}
+            >
               <div className="inline-editor-grid">
                 <EditorField label="Rating">
                   <input
@@ -1871,15 +2204,9 @@ export default function StorefrontAdminApp({
                   />
                 </EditorField>
               </div>
-              <button
-                type="button"
-                className="inline-editor-action inline-editor-action--danger"
-                onClick={() => removeReview(review.id)}
-              >
-                Delete Review
-              </button>
-            </div>
+            </RepeatableCard>
           ))}
+          <AddItemButton onClick={addReview}>+ Add item</AddItemButton>
         </div>
       </EditorPanel>
     );
@@ -1903,7 +2230,11 @@ export default function StorefrontAdminApp({
       >
         <div className="inline-editor-stack">
           {store.products.map((product) => (
-            <div key={product.id} className="inline-editor-card">
+            <RepeatableCard
+              key={product.id}
+              deleteLabel={`Delete ${product.name || "product"}`}
+              onDelete={() => removeProduct(product.id)}
+            >
               <div className="inline-editor-grid">
                 <EditorField label="Name">
                   <input
@@ -1946,15 +2277,9 @@ export default function StorefrontAdminApp({
                   />
                 </EditorField>
               </div>
-              <button
-                type="button"
-                className="inline-editor-action inline-editor-action--danger"
-                onClick={() => removeProduct(product.id)}
-              >
-                Delete Product
-              </button>
-            </div>
+            </RepeatableCard>
           ))}
+          <AddItemButton onClick={addProduct}>+ Add item</AddItemButton>
         </div>
       </EditorPanel>
     );
