@@ -32,7 +32,7 @@ type FlashState =
 export default function DashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [, setReviews] = useState<Review[]>([]);
   const [promotions, setPromotions] = useState<PromotionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

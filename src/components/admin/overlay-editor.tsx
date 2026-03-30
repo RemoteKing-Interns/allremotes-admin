@@ -321,7 +321,7 @@ function DrawerContent({
             value={homeContent.hero?.title || ""} 
             onChange={(e) => setHomeContent({
                 ...homeContent,
-                hero: { ...homeContent.hero, title: e.target.value } as any
+                hero: { ...homeContent.hero, title: e.target.value }
             })}
           />
         </label>
@@ -333,7 +333,7 @@ function DrawerContent({
             value={homeContent.hero?.description || ""} 
             onChange={(e) => setHomeContent({
                 ...homeContent,
-                hero: { ...homeContent.hero, description: e.target.value } as any
+                hero: { ...homeContent.hero, description: e.target.value }
             })}
           />
         </label>
@@ -346,7 +346,7 @@ function DrawerContent({
               value={homeContent.hero?.primaryCta || ""} 
               onChange={(e) => setHomeContent({
                   ...homeContent,
-                  hero: { ...homeContent.hero, primaryCta: e.target.value } as any
+                  hero: { ...homeContent.hero, primaryCta: e.target.value }
               })}
             />
           </label>
@@ -357,7 +357,7 @@ function DrawerContent({
               value={homeContent.hero?.primaryCtaPath || ""} 
               onChange={(e) => setHomeContent({
                   ...homeContent,
-                  hero: { ...homeContent.hero, primaryCtaPath: e.target.value } as any
+                  hero: { ...homeContent.hero, primaryCtaPath: e.target.value }
               })}
             />
           </label>

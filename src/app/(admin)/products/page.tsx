@@ -275,7 +275,9 @@ export default function ProductsPage() {
                   <select
                     className={selectClassName + " w-32"}
                     value={stockFilter}
-                    onChange={(e) => setStockFilter(e.target.value as any)}
+                    onChange={(e) =>
+                      setStockFilter(e.target.value as "all" | "in" | "out")
+                    }
                   >
                     <option value="all">All Stock</option>
                     <option value="in">In Stock</option>

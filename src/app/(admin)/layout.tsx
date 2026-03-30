@@ -35,7 +35,6 @@ import {
   Tablet,
   Trash2,
   Users,
-  X,
   PencilRuler
 } from "lucide-react";
 import {
@@ -45,7 +44,10 @@ import {
 } from "@/lib/admin/auth";
 import { OverlayEditor, type SectionId } from "@/components/admin/overlay-editor";
 
-const PREVIEW_ORIGIN = "https://allremotes.vercel.app";
+const PREVIEW_ROOT = (process.env.NEXT_PUBLIC_PREVIEW_ORIGIN ?? "")
+  .trim()
+  .replace(/\/+$/, "");
+const DEFAULT_PREVIEW_URL = PREVIEW_ROOT || "/";
 
 type DeviceMode = "desktop" | "tablet" | "mobile";
 
@@ -71,10 +73,18 @@ const UTILITIES = [
 
 function normalizePreviewUrl(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed) return PREVIEW_ORIGIN;
-  if (trimmed.startsWith("/")) return `${PREVIEW_ORIGIN}${trimmed}`;
+  if (!trimmed) return DEFAULT_PREVIEW_URL;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `${PREVIEW_ORIGIN}/${trimmed.replace(/^\/+/, "")}`;
+
+  if (PREVIEW_ROOT) {
+    if (trimmed.startsWith("/")) return `${PREVIEW_ROOT}${trimmed}`;
+    return `${PREVIEW_ROOT}/${trimmed.replace(/^\/+/, "")}`;
+  }
+
+  if (trimmed.startsWith("/")) return trimmed;
+  if (trimmed.startsWith("#")) return `/${trimmed}`;
+
+  return `/${trimmed.replace(/^\/+/, "")}`;
 }
 
 export const refreshIframe = () => {
@@ -105,15 +115,15 @@ export default function AdminLayout({
   const [activeSectionFromSidebar, setActiveSectionFromSidebar] = useState<SectionId | null>(null);
 
   /* Iframe state */
-  const [previewUrl, setPreviewUrl] = useState(PREVIEW_ORIGIN);
-  const [previewInput, setPreviewInput] = useState(PREVIEW_ORIGIN);
-  const [previewHistory, setPreviewHistory] = useState([PREVIEW_ORIGIN]);
+  const [previewUrl, setPreviewUrl] = useState(DEFAULT_PREVIEW_URL);
+  const [previewInput, setPreviewInput] = useState(DEFAULT_PREVIEW_URL);
+  const [previewHistory, setPreviewHistory] = useState([DEFAULT_PREVIEW_URL]);
   const [previewHistoryIndex, setPreviewHistoryIndex] = useState(0);
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
   const liveSyncTarget = (process.env.NEXT_PUBLIC_API_BASE_URL || "same-origin /api").trim();
   const liveSyncEnabled = Boolean(process.env.NEXT_PUBLIC_API_BASE_URL);
 
-  const historyRef = useRef<string[]>([PREVIEW_ORIGIN]);
+  const historyRef = useRef<string[]>([DEFAULT_PREVIEW_URL]);
   const historyIndexRef = useRef(0);
 
   function syncHistory(next: string[], idx: number) {
@@ -150,7 +160,7 @@ export default function AdminLayout({
     // Set edit mode to true
     setIsEditMode(true);
     // Trigger scroll by changing iframe URL hash
-    navigatePreview(`${PREVIEW_ORIGIN}/#${sectionId}`, false);
+    navigatePreview(`/#${sectionId}`, false);
     // Tell overlay editor to open drawer
     setActiveSectionFromSidebar(sectionId as SectionId);
     setMobileDrawerOpen(false);
@@ -315,7 +325,7 @@ export default function AdminLayout({
 
             {/* URL Navigation */}
             <div className="flex gap-1 ml-auto shrink-0">
-              <button onClick={() => navigatePreview(previewHistory[previewHistoryIndex - 1] || PREVIEW_ORIGIN, false)} disabled={previewHistoryIndex <= 0} className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30">
+              <button onClick={() => navigatePreview(previewHistory[previewHistoryIndex - 1] || DEFAULT_PREVIEW_URL, false)} disabled={previewHistoryIndex <= 0} className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30">
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <button onClick={() => navigatePreview(previewHistory[previewHistoryIndex + 1] || previewUrl, false)} disabled={previewHistoryIndex >= previewHistory.length - 1} className="w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 disabled:opacity-30">

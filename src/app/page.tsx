@@ -1,5 +1,10 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import StorefrontAdminApp from "@/components/storefront/storefront-admin-app";
 
 export default function HomePage() {
-  redirect("/dashboard");
+  return (
+    <Suspense fallback={<div className="app-loading">Loading storefront…</div>}>
+      <StorefrontAdminApp />
+    </Suspense>
+  );
 }
