@@ -2,7 +2,108 @@
 @import "./storefront.css";
 
 @theme inline {
+  /* ── Typography ────────────────────────────────── */
   --font-sans: "Nunito", system-ui, sans-serif;
+
+  /* ── Brand Colors ──────────────────────────────── */
+  --color-brand-teal:       #2e6b6f;
+  --color-brand-teal-light: #3d8a8f;
+  --color-brand-teal-dark:  #1f4a4d;
+  --color-brand-red:        #a0312d;
+  --color-brand-red-light:  #c03d38;
+  --color-brand-red-dark:   #7a2522;
+  --color-brand-red-bright: #d62725;
+
+  /* ── Neutral / Storefront Colors ───────────────── */
+  --color-sf-white:   #ffffff;
+  --color-sf-bg:      #f5f5f5;
+  --color-sf-border:  #e0e0e0;
+  --color-sf-muted:   #666666;
+  --color-sf-body:    #333333;
+  --color-sf-price:   #dc2626;
+  --color-sf-sale:    #0f766e;
+  --color-sf-stock:   #007600;
+  --color-sf-ink:     #111827;
+  --color-sf-subtle:  #6b7280;
+  --color-sf-faint:   #4b5563;
+  --color-sf-surface: #f3f4f6;
+  --color-sf-line:    #e5e7eb;
+  --color-sf-divider: #eef0f2;
+
+  /* ── Shadows ───────────────────────────────────── */
+  --shadow-sf-card:       0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-sf-card-hover: 0 8px 20px rgba(46, 107, 111, 0.15), 0 8px 20px rgba(160, 49, 45, 0.15);
+  --shadow-sf-dropdown:   0 8px 32px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-sf-mega:       0 12px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-sf-drawer:     -4px 0 20px rgba(0, 0, 0, 0.15);
+  --shadow-sf-btn-teal:   0 4px 12px rgba(46, 107, 111, 0.3);
+  --shadow-sf-btn-red:    0 4px 12px rgba(160, 49, 45, 0.3);
+  --shadow-sf-modal:      0 20px 50px rgba(0, 0, 0, 0.2);
+  --shadow-sf-filter:     0 10px 30px rgba(15, 23, 42, 0.06);
+
+  /* ── Border Radius ─────────────────────────────── */
+  --radius-sf-pill:  9999px;
+  --radius-sf-card:  16px;
+  --radius-sf-panel: 14px;
+  --radius-sf-btn:   12px;
+  --radius-sf-input: 10px;
+  --radius-sf-sm:    8px;
+  --radius-sf-xs:    6px;
+  --radius-sf-none:  4px;
+
+  /* ── Animations ────────────────────────────────── */
+  --animate-shimmer:       shimmer 3s infinite;
+  --animate-slide-down:    slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-slide-right:   slideInRight 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-slide-left:    slideInLeft 0.3s ease;
+  --animate-fade-in:       fadeIn 0.3s ease;
+  --animate-fade-in-up:    fadeInUp 0.8s ease-out;
+  --animate-pulse-badge:   pulse 2s infinite;
+  --animate-trust-scroll:  scroll-trust-bar 20s linear infinite;
+}
+
+/* ── Storefront Gradient Utilities ────────────────── */
+.sf-gradient-teal    { background: linear-gradient(135deg, #2e6b6f 0%, #3d8a8f 100%); }
+.sf-gradient-red     { background: linear-gradient(135deg, #a0312d 0%, #c03d38 100%); }
+.sf-gradient-mixed   { background: linear-gradient(135deg, #2e6b6f 0%, #a0312d 100%); }
+.sf-gradient-mixed-r { background: linear-gradient(135deg, #a0312d 0%, #2e6b6f 100%); }
+.sf-gradient-accent  { background: linear-gradient(135deg, #d62725 0%, #a0312d 50%, #2e6b6f 100%); }
+.sf-gradient-mixed-d { background: linear-gradient(135deg, #2e6b6f 0%, #3d8a8f 50%, #a0312d 100%); }
+
+/* ── Storefront Keyframes ─────────────────────────── */
+@keyframes shimmer {
+  0%   { left: -100%; }
+  100% { left: 100%; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-15px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0.9; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scroll-trust-bar {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 @keyframes feedbackMarquee {

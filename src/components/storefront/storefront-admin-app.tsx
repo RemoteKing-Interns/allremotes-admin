@@ -2659,7 +2659,7 @@ export default function StorefrontAdminApp({
               </div>
             </div>
           ) : (
-            <div className="top-info-bar top-info-bar--editor-hidden" aria-hidden="true" />
+            <div className="h-0 overflow-hidden" aria-hidden="true" />
           )}
           <SectionToolbar
             visible={Boolean(session)}
@@ -2883,10 +2883,7 @@ export default function StorefrontAdminApp({
                     }
 
                     return (
-                      <div
-                        className="absolute left-1/2 top-[calc(100%+0.65rem)] z-[1400] -translate-x-1/2"
-                        style={{ maxWidth: "calc(100vw - 2rem)" }}
-                      >
+                      <div className="absolute left-1/2 top-[calc(100%+0.65rem)] z-[1400] -translate-x-1/2 max-w-[calc(100vw-2rem)]">
                         <div className="w-[min(82rem,calc(100vw-2rem))] overflow-hidden rounded-[1.75rem] border border-neutral-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(251,248,245,0.98))] shadow-[0_28px_54px_rgba(12,34,38,0.12)]">
                           <div className="border-b border-neutral-200 bg-[radial-gradient(circle_at_top_left,rgba(26,122,110,0.10),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(251,248,245,0.96))] px-6 py-4">
                             <div className="flex items-center justify-between gap-4">
@@ -2909,11 +2906,7 @@ export default function StorefrontAdminApp({
                           </div>
                           <div className="max-h-[72vh] overflow-y-auto overflow-x-hidden p-4">
                             <div
-                              className="grid gap-4"
-                              style={{
-                                gridTemplateColumns:
-                                  "repeat(auto-fit, minmax(min(100%, 15.5rem), 1fr))",
-                              }}
+                              className="grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(100%,15.5rem),1fr))]"
                             >
                               {columns.map((column) => {
                                 const { regularItems, shopItem } = splitNavigationItems(column);
@@ -4349,11 +4342,9 @@ export default function StorefrontAdminApp({
 
     if (!product) {
       return (
-        <div className="category-page">
-          <div className="category-products">
-            <div className="container">
-              <h2 className="products-title">Product not found</h2>
-            </div>
+        <div className="flex min-h-[400px] flex-col items-center justify-center py-16">
+          <div className="mx-auto w-full max-w-7xl px-5">
+            <h2 className="text-center text-2xl font-bold text-sf-body">Product not found</h2>
           </div>
         </div>
       );
@@ -5190,18 +5181,16 @@ export default function StorefrontAdminApp({
 
   if (loading) {
     content = (
-      <div className="loading">
-        <div className="spinner" />
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="h-[50px] w-[50px] animate-spin rounded-full border-4 border-sf-border border-t-brand-teal" />
       </div>
     );
   } else if (loadError) {
     content = (
-      <div className="category-page">
-        <div className="category-products">
-          <div className="container">
-            <h2 className="products-title">Unable to load live content</h2>
-            <p className="section-subtitle">{loadError}</p>
-          </div>
+      <div className="flex min-h-[400px] flex-col items-center justify-center py-16">
+        <div className="mx-auto w-full max-w-7xl px-5">
+          <h2 className="text-center text-2xl font-bold text-sf-body">Unable to load live content</h2>
+          <p className="mt-4 text-center text-lg text-sf-muted">{loadError}</p>
         </div>
       </div>
     );
@@ -5263,7 +5252,7 @@ export default function StorefrontAdminApp({
         </div>
       </div>
 
-      <div className="App allremotes-admin-clone site-shell">
+      <div className="flex min-h-screen flex-col allremotes-admin-clone site-shell">
         {renderHeader()}
         <main>{content}</main>
         {renderFooter()}
