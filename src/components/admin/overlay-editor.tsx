@@ -42,7 +42,6 @@ export function OverlayEditor({
   activeSectionFromSidebar: SectionId | null;
   onClearActiveSection: () => void;
 }) {
-  const [hoveredSection, setHoveredSection] = useState<SectionId | null>(null);
   const [activeDrawer, setActiveDrawer] = useState<SectionId | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -112,10 +111,8 @@ export function OverlayEditor({
         <div 
           className="absolute inset-0 z-10"
           style={{ pointerEvents: 'none' }}
-          onMouseLeave={() => setHoveredSection(null)}
         >
           {SECTION_MAP.map(section => {
-            const isHovered = hoveredSection === section.id;
             return (
               <div
                 key={section.id}
@@ -125,43 +122,21 @@ export function OverlayEditor({
                   left: 0,
                   right: 0,
                   height: section.height,
-                  pointerEvents: 'auto',
-                  cursor: 'default',
+                  pointerEvents: 'none',
                 }}
-                onMouseEnter={() => setHoveredSection(section.id)}
               >
-                {/* Hover highlight */}
-                {isHovered && (
-                  <div 
-                    className="absolute inset-0 border-2 border-teal-500/60 bg-teal-500/5 pointer-events-none"
-                    style={{ borderRadius: '2px' }}
-                  />
-                )}
-                
                 {/* Edit button */}
-                <AnimatePresence>
-                  {isHovered && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.15 }}
-                      onClick={() => setActiveDrawer(section.id)}
-                      className="absolute top-2 right-2 z-20 flex items-center gap-1.5 bg-neutral-900 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-semibold hover:bg-neutral-800 transition-colors"
-                      style={{ pointerEvents: 'auto' }}
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Edit {section.label}
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-                
-                {/* Section label badge */}
-                {isHovered && (
-                  <div className="absolute bottom-2 left-2 bg-neutral-900/70 backdrop-blur-sm text-white/90 text-[10px] font-semibold tracking-wider px-2 py-1 rounded-md">
-                    {section.label}
-                  </div>
-                )}
+                <motion.button
+                  initial={{ opacity: 0.8, scale: 0.96 }}
+                  animate={{ opacity: 0.92, scale: 1 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={() => setActiveDrawer(section.id)}
+                  className="absolute top-2 right-2 z-20 flex items-center gap-1.5 rounded-lg bg-neutral-900/85 px-3 py-1.5 text-xs font-semibold text-white shadow-lg transition-colors hover:bg-neutral-800"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit {section.label}
+                </motion.button>
               </div>
             );
           })}

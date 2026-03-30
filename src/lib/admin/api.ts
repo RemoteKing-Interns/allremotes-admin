@@ -18,7 +18,9 @@ import {
   type UserApiRecord,
 } from "@/lib/admin/types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "")
+  .trim()
+  .replace(/\/+$/, "");
 
 type ContentSection =
   | "home"
@@ -35,7 +37,8 @@ function buildUrl(path: string) {
   const normalizedPath = path.startsWith("/api")
     ? path
     : `/api${path.startsWith("/") ? path : `/${path}`}`;
-  return `${API_BASE_URL}${normalizedPath}`;
+
+  return API_BASE_URL ? `${API_BASE_URL}${normalizedPath}` : normalizedPath;
 }
 
 async function readError(response: Response) {
@@ -738,5 +741,5 @@ export function createEmptyOffer(index: number): PromotionOffer {
 }
 
 export function getApiBaseLabel() {
-  return API_BASE_URL || "not configured";
+  return API_BASE_URL || "same-origin /api";
 }

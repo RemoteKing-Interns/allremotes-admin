@@ -110,6 +110,8 @@ export default function AdminLayout({
   const [previewHistory, setPreviewHistory] = useState([PREVIEW_ORIGIN]);
   const [previewHistoryIndex, setPreviewHistoryIndex] = useState(0);
   const [deviceMode, setDeviceMode] = useState<DeviceMode>("desktop");
+  const liveSyncTarget = (process.env.NEXT_PUBLIC_API_BASE_URL || "same-origin /api").trim();
+  const liveSyncEnabled = Boolean(process.env.NEXT_PUBLIC_API_BASE_URL);
 
   const historyRef = useRef<string[]>([PREVIEW_ORIGIN]);
   const historyIndexRef = useRef(0);
@@ -297,6 +299,19 @@ export default function AdminLayout({
               <PencilRuler className="h-3.5 w-3.5" />
               {isEditMode ? "Edit Mode ON" : "Edit Mode OFF"}
             </button>
+
+            <div
+              className="hidden xl:flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold"
+              style={{
+                borderColor: liveSyncEnabled ? "rgba(46, 107, 111, 0.35)" : "#efeded",
+                color: liveSyncEnabled ? "#2e6b6f" : "#6e797e",
+                background: liveSyncEnabled ? "rgba(46, 107, 111, 0.08)" : "#f5f3f3",
+              }}
+              title={`Admin API target: ${liveSyncTarget}`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: liveSyncEnabled ? "#2e6b6f" : "#9ca3af" }} />
+              {liveSyncEnabled ? "Live Sync" : "Local Sync"}
+            </div>
 
             {/* URL Navigation */}
             <div className="flex gap-1 ml-auto shrink-0">

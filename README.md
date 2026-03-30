@@ -1,5 +1,28 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Admin Live Sync Setup
+
+To make admin edits update the live storefront, point this admin app to the API app that is backed by MongoDB.
+
+1. In this admin app, set `NEXT_PUBLIC_API_BASE_URL` to your storefront/API origin.
+2. In the API app (the `allremotes` project), set `MONGODB_URI` and optionally `MONGODB_DB`.
+3. Deploy both apps with those variables.
+
+Example admin `.env.local`:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://allremotes.vercel.app
+```
+
+Example API app env:
+
+```bash
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<db>?retryWrites=true&w=majority
+MONGODB_DB=allremotes
+```
+
+After this setup, saves from the admin editor use the API content routes and now trigger server revalidation so updates appear on public pages faster.
+
 ## Getting Started
 
 First, run the development server:
