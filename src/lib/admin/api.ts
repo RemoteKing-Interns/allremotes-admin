@@ -153,7 +153,14 @@ export function normalizeHomeContent(input: unknown): HomeContent {
         primaryCtaPath: String(heroRecord.primaryCtaPath ?? ""),
         secondaryCta: String(heroRecord.secondaryCta ?? ""),
         secondaryCtaPath: String(heroRecord.secondaryCtaPath ?? ""),
+        backgroundColors:
+          Array.isArray(heroRecord.backgroundColors) && heroRecord.backgroundColors.length
+            ? heroRecord.backgroundColors.map((entry) => String(entry))
+            : DEFAULT_HOME_CONTENT.hero.backgroundColors,
       },
+      featuresTitle: String(
+        input.featuresTitle ?? DEFAULT_HOME_CONTENT.featuresTitle,
+      ),
       features: featureList.map((feature) => {
         const record = isRecord(feature) ? feature : {};
 
@@ -182,6 +189,17 @@ export function normalizeHomeContent(input: unknown): HomeContent {
             buttonPath: String(input.ctaSection.buttonPath ?? ""),
           }
         : DEFAULT_HOME_CONTENT.ctaSection,
+      footer: isRecord(input.footer)
+        ? {
+            companyName: String(
+              input.footer.companyName ?? DEFAULT_HOME_CONTENT.footer.companyName,
+            ),
+            tagline: String(
+              input.footer.tagline ?? DEFAULT_HOME_CONTENT.footer.tagline,
+            ),
+            email: String(input.footer.email ?? DEFAULT_HOME_CONTENT.footer.email),
+          }
+        : DEFAULT_HOME_CONTENT.footer,
     };
   }
 
@@ -202,7 +220,14 @@ export function normalizeHomeContent(input: unknown): HomeContent {
       primaryCtaPath: String(primaryButton.link ?? ""),
       secondaryCta: String(secondaryButton.label ?? ""),
       secondaryCtaPath: String(secondaryButton.link ?? ""),
+      backgroundColors:
+        Array.isArray(heroRecord.backgroundColors) && heroRecord.backgroundColors.length
+          ? heroRecord.backgroundColors.map((entry) => String(entry))
+          : DEFAULT_HOME_CONTENT.hero.backgroundColors,
     },
+    featuresTitle: String(
+      input.featuresTitle ?? DEFAULT_HOME_CONTENT.featuresTitle,
+    ),
     features: featureList.map((feature) => {
       const record = isRecord(feature) ? feature : {};
 
@@ -231,6 +256,15 @@ export function normalizeHomeContent(input: unknown): HomeContent {
       buttonText: String(ctaRecord.buttonText ?? ""),
       buttonPath: String(ctaRecord.buttonLink ?? ""),
     },
+    footer: isRecord(input.footer)
+      ? {
+          companyName: String(
+            input.footer.companyName ?? DEFAULT_HOME_CONTENT.footer.companyName,
+          ),
+          tagline: String(input.footer.tagline ?? DEFAULT_HOME_CONTENT.footer.tagline),
+          email: String(input.footer.email ?? DEFAULT_HOME_CONTENT.footer.email),
+        }
+      : DEFAULT_HOME_CONTENT.footer,
   };
 }
 
@@ -469,8 +503,10 @@ function homeContentToPayload(content: HomeContent) {
       title: content.hero.title,
       subtitle: content.hero.subtitle,
       description: content.hero.description,
+      backgroundColors: content.hero.backgroundColors,
       buttons,
     },
+    featuresTitle: content.featuresTitle,
     features: content.features.map((feature) => ({
       icon: feature.icon,
       title: feature.title,
@@ -487,6 +523,11 @@ function homeContentToPayload(content: HomeContent) {
       description: content.ctaSection.description,
       buttonText: content.ctaSection.buttonText,
       buttonLink: content.ctaSection.buttonPath,
+    },
+    footer: {
+      companyName: content.footer.companyName,
+      tagline: content.footer.tagline,
+      email: content.footer.email,
     },
   };
 }

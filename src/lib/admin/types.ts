@@ -90,6 +90,7 @@ export interface HomeHero {
   primaryCtaPath: string;
   secondaryCta: string;
   secondaryCtaPath: string;
+  backgroundColors: string[];
 }
 
 export interface HomeFeature {
@@ -113,12 +114,20 @@ export interface HomeCtaSection {
   buttonPath: string;
 }
 
+export interface HomeFooterContent {
+  companyName: string;
+  tagline: string;
+  email: string;
+}
+
 export interface HomeContent {
   heroImages: string[];
   hero: HomeHero;
+  featuresTitle: string;
   features: HomeFeature[];
   whyBuy: HomeWhyBuyItem[];
   ctaSection: HomeCtaSection;
+  footer: HomeFooterContent;
 }
 
 export interface NavigationItem {
@@ -273,7 +282,9 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
     primaryCtaPath: "/products/car",
     secondaryCta: "Shop Garage Remotes",
     secondaryCtaPath: "/products/garage",
+    backgroundColors: ["#2e6b6f", "#2e6b6f", "#a0312d"],
   },
+  featuresTitle: "Our Product Categories",
   features: [
     {
       icon: "🚗",
@@ -312,6 +323,11 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
       "Browse our collection and find the perfect remote for your needs",
     buttonText: "View All Products",
     buttonPath: "/products/all",
+  },
+  footer: {
+    companyName: "ALLREMOTES",
+    tagline: "Your trusted source for car and garage remotes",
+    email: "contact@allremotes.com",
   },
 };
 

@@ -1,5 +1,11 @@
-import { redirect } from "next/navigation";
+import StorefrontLoginPage from "@/components/storefront/storefront-login-page";
 
-export default function LoginPage() {
-  redirect("/");
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+
+  return <StorefrontLoginPage nextPath={resolvedSearchParams.next} />;
 }
