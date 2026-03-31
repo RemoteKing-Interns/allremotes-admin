@@ -1,5 +1,5 @@
 ---
-mode: "agent"
+agent: "agent"
 description: "Audit Next.js performance for bundle size, hydration, rendering cost, and navigation responsiveness with concrete code changes."
 ---
 Perform a performance audit for this workspace with focus on:
