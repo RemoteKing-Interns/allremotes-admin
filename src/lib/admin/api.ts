@@ -42,6 +42,23 @@ function buildUrl(path: string) {
   return API_BASE_URL ? `${API_BASE_URL}${normalizedPath}` : normalizedPath;
 }
 
+async function fetchWithSameOriginFallback(path: string, init?: RequestInit) {
+  const normalizedPath = path.startsWith("/api")
+    ? path
+    : `/api${path.startsWith("/") ? path : `/${path}`}`;
+
+  const primaryResponse = await fetch(buildUrl(path), init);
+
+  if (!primaryResponse.ok && API_BASE_URL) {
+    const fallbackResponse = await fetch(normalizedPath, init);
+    if (fallbackResponse.ok) {
+      return fallbackResponse;
+    }
+  }
+
+  return primaryResponse;
+}
+
 async function readError(response: Response) {
   const data = (await response.json().catch(() => null)) as ApiErrorShape | null;
   return data?.error ?? data?.message ?? `Request failed with ${response.status}`;
@@ -57,7 +74,7 @@ async function request<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(buildUrl(path), {
+  const response = await fetchWithSameOriginFallback(path, {
     headers,
     ...init,
   });
@@ -74,7 +91,7 @@ async function request<T>(
 }
 
 async function requestBlob(path: string, init?: RequestInit) {
-  const response = await fetch(buildUrl(path), init);
+  const response = await fetchWithSameOriginFallback(path, init);
   if (!response.ok) {
     throw new Error(await readError(response));
   }

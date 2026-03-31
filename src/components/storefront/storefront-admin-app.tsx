@@ -15,6 +15,7 @@ import {
   deleteReview,
   getHomeContent,
   getNavigation,
+  getOrders,
   getProducts,
   getPromotions,
   getReviews,
@@ -27,6 +28,8 @@ import {
 } from "@/lib/admin/api";
 import {
   DEFAULT_SETTINGS,
+  DEFAULT_PROMOTIONS,
+  DEFAULT_HOME_CONTENT,
   type HomeContent,
   type NavigationItem,
   type NavigationSectionEntry,
@@ -200,6 +203,25 @@ interface StorefrontState {
   reviews: Review[];
   settings: SiteSettings;
 }
+
+type AdminNavPanelKey =
+  | "dashboard"
+  | "analytics"
+  | "users"
+  | "orders"
+  | "promotions"
+  | "reviews"
+  | "settings";
+
+const ADMIN_NAV_ITEMS: Array<{ key: AdminNavPanelKey; label: string }> = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "analytics", label: "Analytics" },
+  { key: "users", label: "Users" },
+  { key: "orders", label: "Orders" },
+  { key: "promotions", label: "Promotions" },
+  { key: "reviews", label: "Reviews" },
+  { key: "settings", label: "Settings" },
+];
 
 function isImageReference(value: string) {
   return /^(https?:\/\/|\/).+\.(png|jpe?g|gif|webp|svg)$/i.test(value.trim());
@@ -518,6 +540,12 @@ export default function StorefrontAdminApp({
   const [catalogSort, setCatalogSort] = useState("featured");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeNavPanel, setActiveNavPanel] = useState<AdminNavPanelKey | null>(null);
+  const [analyticsRange, setAnalyticsRange] = useState("30d");
+  const [navOrders, setNavOrders] = useState<Array<{ id: string; status: string; createdAt?: string }>>([]);
+  const [navOrdersLoading, setNavOrdersLoading] = useState(false);
+  const [navOrdersError, setNavOrdersError] = useState("");
+  const [adminUsers, setAdminUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const deferredSearch = useDeferredValue(searchQuery);
   const routePath = normalizeRoutePath(slug);
 
@@ -526,8 +554,8 @@ export default function StorefrontAdminApp({
     setLoadError("");
 
     try {
-      const [homeContent, navigation, products, promotions, reviews, settings] =
-        await Promise.all([
+      const [homeContentResult, navigationResult, productsResult, promotionsResult, reviewsResult, settingsResult] =
+        await Promise.allSettled([
           getHomeContent(),
           getNavigation(),
           getProducts(),
@@ -535,6 +563,39 @@ export default function StorefrontAdminApp({
           getReviews(),
           getSettings(),
         ]);
+
+      const homeContent =
+        homeContentResult.status === "fulfilled"
+          ? homeContentResult.value
+          : DEFAULT_HOME_CONTENT;
+      const navigation =
+        navigationResult.status === "fulfilled"
+          ? navigationResult.value
+          : savedStore?.navigation ?? {};
+      const products =
+        productsResult.status === "fulfilled"
+          ? productsResult.value
+          : savedStore?.products ?? [];
+      const promotions =
+        promotionsResult.status === "fulfilled"
+          ? promotionsResult.value
+          : savedStore?.promotions ?? DEFAULT_PROMOTIONS;
+      const reviews =
+        reviewsResult.status === "fulfilled"
+          ? reviewsResult.value
+          : savedStore?.reviews ?? [];
+      const settings =
+        settingsResult.status === "fulfilled"
+          ? settingsResult.value
+          : savedStore?.settings ?? DEFAULT_SETTINGS;
+
+      const hasFailure =
+        homeContentResult.status === "rejected" ||
+        navigationResult.status === "rejected" ||
+        productsResult.status === "rejected" ||
+        promotionsResult.status === "rejected" ||
+        reviewsResult.status === "rejected" ||
+        settingsResult.status === "rejected";
 
       const nextSettings = {
         ...DEFAULT_SETTINGS,
@@ -571,10 +632,15 @@ export default function StorefrontAdminApp({
       setSavedStore(cloneStorefrontState(nextStore));
       setDeletedReviewIds([]);
       setDirtySections({});
-    } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : "Unable to load the live site content.",
-      );
+
+      if (hasFailure) {
+        setToast({
+          tone: "error",
+          message: "Live API is unavailable. Showing fallback content.",
+        });
+      }
+    } catch {
+      setLoadError("Unable to load live content or fallback content.");
     } finally {
       setLoading(false);
     }
@@ -597,6 +663,78 @@ export default function StorefrontAdminApp({
       window.clearInterval(timer);
     };
   }, [store?.homeContent.heroImages.length]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveNavPanel(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw =
+        localStorage.getItem("admin_users") ??
+        localStorage.getItem("admin_accounts") ??
+        "[]";
+      const parsed = JSON.parse(raw) as Array<{ id?: string; name?: string; email?: string }>;
+      const normalized = parsed
+        .map((item, index) => ({
+          id: String(item.id ?? `user-${index + 1}`),
+          name: String(item.name ?? "Unnamed User"),
+          email: String(item.email ?? ""),
+        }))
+        .filter((item) => item.email || item.name);
+      setAdminUsers(normalized);
+    } catch {
+      setAdminUsers([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeNavPanel || (activeNavPanel !== "dashboard" && activeNavPanel !== "orders")) {
+      return;
+    }
+
+    let active = true;
+
+    async function loadNavOrders() {
+      setNavOrdersLoading(true);
+      setNavOrdersError("");
+      try {
+        const orders = await getOrders();
+        if (!active) {
+          return;
+        }
+        setNavOrders(
+          orders.map((order) => ({
+            id: order.id,
+            status: order.status ?? "Processing",
+            createdAt: order.createdAt,
+          })),
+        );
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setNavOrdersError(error instanceof Error ? error.message : "Failed to load orders");
+      } finally {
+        if (active) {
+          setNavOrdersLoading(false);
+        }
+      }
+    }
+
+    void loadNavOrders();
+
+    return () => {
+      active = false;
+    };
+  }, [activeNavPanel]);
 
   useEffect(() => {
     setCatalogSearch(searchParams.get("query") ?? "");
@@ -865,6 +1003,171 @@ export default function StorefrontAdminApp({
 
   function handleEditorSave(editor: EditorKey) {
     void persistSections([editorSectionKey(editor)], { closeEditor: true });
+  }
+
+  async function updateNavOrderStatus(orderId: string, status: string) {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed with ${response.status}`);
+      }
+
+      setNavOrders((current) =>
+        current.map((order) => (order.id === orderId ? { ...order, status } : order)),
+      );
+    } catch {
+      setToast({
+        tone: "error",
+        message: "Unable to update order status",
+      });
+    }
+  }
+
+  function renderAdminNavPanel() {
+    if (!activeNavPanel) {
+      return null;
+    }
+
+    const promotionsCount =
+      (store?.promotions.offers.offers.length ?? 0) +
+      (store?.promotions.topInfoBar.items.length ?? 0);
+
+    return (
+      <>
+        <div className="admin-nav-overlay" onClick={() => setActiveNavPanel(null)} />
+        <aside className="admin-nav-panel" role="dialog" aria-modal="true" aria-label="Admin panel">
+          <div className="admin-nav-panel__header">
+            <strong>{ADMIN_NAV_ITEMS.find((item) => item.key === activeNavPanel)?.label}</strong>
+            <button
+              type="button"
+              className="admin-nav-panel__close"
+              onClick={() => setActiveNavPanel(null)}
+              aria-label="Close panel"
+            >
+              ×
+            </button>
+          </div>
+          <div className="admin-nav-panel__body">
+            {activeNavPanel === "dashboard" ? (
+              <div className="admin-nav-panel__grid">
+                <div className="admin-nav-panel__section">
+                  <div className="admin-nav-panel__sub-title">Total Products</div>
+                  <strong>{store?.products.length ?? 0}</strong>
+                </div>
+                <div className="admin-nav-panel__section">
+                  <div className="admin-nav-panel__sub-title">Orders</div>
+                  <strong>{navOrders.length}</strong>
+                </div>
+                <div className="admin-nav-panel__section">
+                  <div className="admin-nav-panel__sub-title">Reviews</div>
+                  <strong>{store?.reviews.length ?? 0}</strong>
+                </div>
+                <div className="admin-nav-panel__section">
+                  <div className="admin-nav-panel__sub-title">Active Promotions</div>
+                  <strong>{promotionsCount}</strong>
+                </div>
+                {navOrdersLoading ? <p className="admin-nav-panel__placeholder">Loading order totals...</p> : null}
+                {navOrdersError ? <p className="admin-nav-panel__placeholder">{navOrdersError}</p> : null}
+              </div>
+            ) : null}
+
+            {activeNavPanel === "analytics" ? (
+              <div className="admin-nav-panel__section">
+                <label className="admin-nav-panel__sub-title" htmlFor="analytics-range">Time Range</label>
+                <select
+                  id="analytics-range"
+                  className="inline-editor-input"
+                  value={analyticsRange}
+                  onChange={(event) => setAnalyticsRange(event.target.value)}
+                >
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="90d">Last 90 days</option>
+                  <option value="1y">Last year</option>
+                </select>
+                <p className="admin-nav-panel__placeholder">Analytics coming soon.</p>
+              </div>
+            ) : null}
+
+            {activeNavPanel === "users" ? (
+              <div className="admin-nav-panel__section">
+                <div className="admin-nav-panel__sub-title">User Accounts</div>
+                {adminUsers.length ? (
+                  <ul className="admin-nav-panel__list">
+                    {adminUsers.map((user) => (
+                      <li key={user.id} className="admin-nav-panel__row">
+                        <span>{user.name}</span>
+                        <small>{user.email}</small>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="admin-nav-panel__placeholder">No local users found.</p>
+                )}
+              </div>
+            ) : null}
+
+            {activeNavPanel === "orders" ? (
+              <div className="admin-nav-panel__section">
+                {navOrdersLoading ? <p className="admin-nav-panel__placeholder">Loading orders...</p> : null}
+                {navOrdersError ? <p className="admin-nav-panel__placeholder">{navOrdersError}</p> : null}
+                {navOrders.length ? (
+                  <ul className="admin-nav-panel__list">
+                    {navOrders.map((order) => (
+                      <li key={order.id} className="admin-nav-panel__row">
+                        <span>#{order.id}</span>
+                        <select
+                          className="inline-editor-input"
+                          value={order.status}
+                          onChange={(event) => void updateNavOrderStatus(order.id, event.target.value)}
+                        >
+                          <option value="Processing">Processing</option>
+                          <option value="Shipped">Shipped</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+
+            {activeNavPanel === "promotions" ? (
+              <div className="admin-nav-panel__section">
+                <p className="admin-nav-panel__placeholder">
+                  Edit top info bar and offers with the existing page editor, then publish.
+                </p>
+              </div>
+            ) : null}
+
+            {activeNavPanel === "reviews" ? (
+              <div className="admin-nav-panel__section">
+                <p className="admin-nav-panel__placeholder">
+                  Use the Reviews editor section to add, edit, and delete homepage reviews.
+                </p>
+              </div>
+            ) : null}
+
+            {activeNavPanel === "settings" ? (
+              <div className="admin-nav-panel__section">
+                <p className="admin-nav-panel__placeholder">Manage site settings from the admin settings route.</p>
+                <Link href="/settings" className="inline-toolbar-button inline-toolbar-button--primary">
+                  Open Settings
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        </aside>
+      </>
+    );
   }
 
   function visibleSections() {
@@ -3012,6 +3315,21 @@ export default function StorefrontAdminApp({
           <span className="storefront-editor-topbar__dot" />
           <span>AllRemotes Admin</span>
         </div>
+        <nav className="storefront-editor-topbar__nav" aria-label="Admin quick navigation">
+          {ADMIN_NAV_ITEMS.map((item) => {
+            const isActive = activeNavPanel === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className={`storefront-editor-topbar__nav-item${isActive ? " storefront-editor-topbar__nav-item--active" : ""}`}
+                onClick={() => setActiveNavPanel((current) => (current === item.key ? null : item.key))}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
         <div className="storefront-editor-topbar__actions">
           <button
             type="button"
@@ -3058,6 +3376,7 @@ export default function StorefrontAdminApp({
           {toast.message}
         </div>
       ) : null}
+      {renderAdminNavPanel()}
     </>
   );
 }
