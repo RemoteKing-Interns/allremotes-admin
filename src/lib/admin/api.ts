@@ -19,9 +19,7 @@ import {
   type UserApiRecord,
 } from "@/lib/admin/types";
 
-const LIVE_API = "https://allremotes.vercel.app";
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? LIVE_API)
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "")
   .trim()
   .replace(/\/+$/, "");
 
