@@ -45,30 +45,23 @@ import {
   deleteReview,
   getHomeContent,
   getNavigation,
-  getOrders,
   getProducts,
   getPromotions,
   getReviews,
   getSettings,
-  getUsers,
-  resetAdminData,
   saveHomeContent,
   saveNavigation,
   saveProducts,
   savePromotions,
   saveReviews,
-  saveSettings,
-  updateOrderStatus,
 } from "@/lib/admin/api";
 import {
   DEFAULT_SETTINGS,
-  type AdminUser,
   type HomeContent,
   type NavigationColumn,
   type NavigationItem,
   type NavigationSectionEntry,
   type NavigationTree,
-  type Order,
   type Product,
   type PromotionsData,
   type Review,
@@ -351,25 +344,6 @@ type EditorKey =
   | "reviews"
   | "cta"
   | "footer";
-
-type NavPanelKey =
-  | "dashboard"
-  | "analytics"
-  | "users"
-  | "orders"
-  | "promotions"
-  | "reviews"
-  | "settings";
-
-const NAV_ITEMS: { key: NavPanelKey; label: string }[] = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "analytics", label: "Analytics" },
-  { key: "users", label: "Users" },
-  { key: "orders", label: "Orders" },
-  { key: "promotions", label: "Promotions" },
-  { key: "reviews", label: "Reviews" },
-  { key: "settings", label: "Settings" },
-];
 
 type ToastState =
   | {
@@ -831,10 +805,6 @@ export default function StorefrontAdminApp({
   >({});
   const [dirtySections, setDirtySections] = useState<Partial<Record<DirtyKey, true>>>({});
   const [deletedReviewIds, setDeletedReviewIds] = useState<string[]>([]);
-  const [activeNavPanel, setActiveNavPanel] = useState<NavPanelKey | null>(null);
-  const [navPanelData, setNavPanelData] = useState<Record<string, unknown>>({});
-  const [navPanelLoading, setNavPanelLoading] = useState(false);
-  const [analyticsRange, setAnalyticsRange] = useState("7d");
   const [heroIndex, setHeroIndex] = useState(0);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileExpandedMenu, setMobileExpandedMenu] = useState<string | null>(null);
@@ -1003,15 +973,6 @@ export default function StorefrontAdminApp({
       window.clearTimeout(timer);
     };
   }, [contactSubmitted]);
-
-  useEffect(() => {
-    if (!activeNavPanel) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setActiveNavPanel(null);
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [activeNavPanel]);
 
   function markDirty(section: DirtyKey) {
     setDirtySections((current) => ({
@@ -5255,445 +5216,6 @@ export default function StorefrontAdminApp({
     content = renderFallback();
   }
 
-  /* ───────── Nav-panel helpers ───────── */
-  function openNavPanel(key: NavPanelKey) {
-    if (activeNavPanel === key) {
-      setActiveNavPanel(null);
-      return;
-    }
-    setActiveNavPanel(key);
-    setNavPanelLoading(true);
-    setNavPanelData({});
-
-    (async () => {
-      try {
-        if (key === "dashboard") {
-          const [products, orders, reviews, promotions] = await Promise.all([
-            getProducts(),
-            getOrders().catch(() => []),
-            getReviews(),
-            getPromotions(),
-          ]);
-          setNavPanelData({
-            totalProducts: products.length,
-            totalOrders: orders.length,
-            totalReviews: reviews.length,
-            activePromotions: promotions.offers.offers.filter((o) => o.enabled).length,
-          });
-        } else if (key === "users") {
-          const users = await getUsers().catch(() => [] as AdminUser[]);
-          setNavPanelData({ users });
-        } else if (key === "orders") {
-          const orders = await getOrders().catch(() => [] as Order[]);
-          setNavPanelData({ orders });
-        } else if (key === "promotions") {
-          const promotions = await getPromotions();
-          setNavPanelData({ promotions });
-        } else if (key === "reviews") {
-          const reviews = await getReviews();
-          setNavPanelData({ reviews });
-        } else if (key === "settings") {
-          const settings = await getSettings();
-          setNavPanelData({ settings });
-        }
-      } catch {
-        /* keep empty data */
-      } finally {
-        setNavPanelLoading(false);
-      }
-    })();
-  }
-
-  function closeNavPanel() {
-    setActiveNavPanel(null);
-  }
-
-  /* ───────── Nav-panel renderers ───────── */
-  function renderNavPanelContent() {
-    if (navPanelLoading) {
-      return (
-        <div className="admin-nav-panel__loading">
-          <div className="admin-nav-panel__spinner" />
-          <span>Loading…</span>
-        </div>
-      );
-    }
-
-    switch (activeNavPanel) {
-      case "dashboard":
-        return renderDashboardPanel();
-      case "analytics":
-        return renderAnalyticsPanel();
-      case "users":
-        return renderUsersPanel();
-      case "orders":
-        return renderOrdersPanel();
-      case "promotions":
-        return renderPromotionsNavPanel();
-      case "reviews":
-        return renderReviewsNavPanel();
-      case "settings":
-        return renderSettingsNavPanel();
-      default:
-        return null;
-    }
-  }
-
-  function renderDashboardPanel() {
-    const d = navPanelData as {
-      totalProducts?: number;
-      totalOrders?: number;
-      totalReviews?: number;
-      activePromotions?: number;
-    };
-    const cards = [
-      { label: "Total Products", value: d.totalProducts ?? 0, color: "#6366f1" },
-      { label: "Total Orders", value: d.totalOrders ?? 0, color: "#22c55e" },
-      { label: "Total Reviews", value: d.totalReviews ?? 0, color: "#f59e0b" },
-      { label: "Active Promotions", value: d.activePromotions ?? 0, color: "#ec4899" },
-    ];
-    return (
-      <div className="admin-nav-panel__grid">
-        {cards.map((card) => (
-          <div key={card.label} className="admin-dash-card" style={{ borderLeftColor: card.color }}>
-            <span className="admin-dash-card__value">{card.value}</span>
-            <span className="admin-dash-card__label">{card.label}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  function renderAnalyticsPanel() {
-    return (
-      <div className="admin-nav-panel__section">
-        <div className="admin-nav-panel__row" style={{ marginBottom: 16 }}>
-          {["24h", "7d", "30d", "90d"].map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={`admin-chip${analyticsRange === r ? " admin-chip--active" : ""}`}
-              onClick={() => setAnalyticsRange(r)}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-        <div className="admin-nav-panel__placeholder">
-          <span style={{ fontSize: 40, marginBottom: 8 }}>📊</span>
-          <strong>Analytics coming soon</strong>
-          <p style={{ color: "#888", fontSize: 13, maxWidth: 260, textAlign: "center" }}>
-            Detailed traffic, conversion and revenue analytics will appear here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  function renderUsersPanel() {
-    const users = ((navPanelData as { users?: AdminUser[] }).users ?? []);
-    return (
-      <div className="admin-nav-panel__section">
-        {users.length === 0 ? (
-          <div className="admin-nav-panel__placeholder">
-            <strong>No users found</strong>
-          </div>
-        ) : (
-          <div className="admin-nav-panel__list">
-            {users.map((u) => (
-              <div key={u.id} className="admin-user-row">
-                <div className="admin-user-row__avatar">
-                  {(u.name || "U").slice(0, 1).toUpperCase()}
-                </div>
-                <div className="admin-user-row__info">
-                  <strong>{u.name}</strong>
-                  <span>{u.email}</span>
-                </div>
-                <span className={`admin-status-badge admin-status-badge--${u.status}`}>
-                  {u.status}
-                </span>
-                <span className={`admin-role-badge admin-role-badge--${u.role}`}>
-                  {u.role}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function renderOrdersPanel() {
-    const orders = ((navPanelData as { orders?: Order[] }).orders ?? []);
-    const statusFlow = ["processing", "shipped", "delivered", "cancelled"] as const;
-
-    async function handleStatusChange(orderId: string, newStatus: string) {
-      try {
-        await updateOrderStatus(orderId, newStatus);
-        setNavPanelData((prev) => {
-          const prevOrders = ((prev as { orders?: Order[] }).orders ?? []);
-          return {
-            ...prev,
-            orders: prevOrders.map((o) =>
-              o.id === orderId ? { ...o, status: newStatus as Order["status"] } : o,
-            ),
-          };
-        });
-        setToast({ tone: "success", message: `Order status → ${newStatus}` });
-      } catch {
-        setToast({ tone: "error", message: "Failed to update status" });
-      }
-    }
-
-    return (
-      <div className="admin-nav-panel__section">
-        {orders.length === 0 ? (
-          <div className="admin-nav-panel__placeholder">
-            <strong>No orders yet</strong>
-          </div>
-        ) : (
-          <div className="admin-nav-panel__list">
-            {orders.map((o) => (
-              <div key={o.id} className="admin-order-row">
-                <div className="admin-order-row__top">
-                  <strong>#{o.id.slice(-6)}</strong>
-                  <span className={`admin-status-badge admin-status-badge--${o.status ?? "processing"}`}>
-                    {o.status ?? "processing"}
-                  </span>
-                </div>
-                {o.customer?.fullName && (
-                  <span className="admin-order-row__customer">{o.customer.fullName}</span>
-                )}
-                {o.pricing?.total != null && (
-                  <span className="admin-order-row__total">
-                    {formatCurrency(o.pricing.total, o.pricing.currency ?? "AUD")}
-                  </span>
-                )}
-                <div className="admin-order-row__actions">
-                  {statusFlow.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      className={`admin-chip${
-                        (o.status ?? "processing") === s ? " admin-chip--active" : ""
-                      }`}
-                      disabled={(o.status ?? "processing") === s}
-                      onClick={() => handleStatusChange(o.id, s)}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function renderPromotionsNavPanel() {
-    const promos = (navPanelData as { promotions?: PromotionsData }).promotions;
-    if (!promos) {
-      return (
-        <div className="admin-nav-panel__placeholder">
-          <strong>No promotions data</strong>
-        </div>
-      );
-    }
-    return (
-      <div className="admin-nav-panel__section">
-        <div className="admin-nav-panel__sub-title">Top Info Bar</div>
-        <div style={{ marginBottom: 8 }}>
-          <span className={`admin-status-badge admin-status-badge--${promos.topInfoBar.enabled ? "active" : "inactive"}`}>
-            {promos.topInfoBar.enabled ? "Enabled" : "Disabled"}
-          </span>
-        </div>
-        <div className="admin-chip-list">
-          {promos.topInfoBar.items.map((item, i) => (
-            <span key={i} className="admin-chip">{item}</span>
-          ))}
-        </div>
-
-        <div className="admin-nav-panel__sub-title" style={{ marginTop: 20 }}>Offers</div>
-        {promos.offers.offers.length === 0 ? (
-          <p style={{ color: "#888", fontSize: 13 }}>No offers configured.</p>
-        ) : (
-          <div className="admin-nav-panel__list">
-            {promos.offers.offers.map((offer) => (
-              <div key={offer.id} className="admin-promo-row">
-                <div className="admin-promo-row__top">
-                  <strong>{offer.name || "Untitled"}</strong>
-                  <span className={`admin-status-badge admin-status-badge--${offer.enabled ? "active" : "inactive"}`}>
-                    {offer.enabled ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <span style={{ fontSize: 13, color: "#666" }}>
-                  {offer.discountPercent}% off · {offer.appliesTo}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function renderReviewsNavPanel() {
-    const reviews = ((navPanelData as { reviews?: Review[] }).reviews ?? []);
-
-    async function handleDeleteNavReview(id: string) {
-      try {
-        await deleteReview(id).catch(() => undefined);
-        const fresh = await getReviews();
-        setNavPanelData((prev) => ({ ...prev, reviews: fresh }));
-        setToast({ tone: "success", message: "Review deleted" });
-      } catch {
-        setToast({ tone: "error", message: "Failed to delete review" });
-      }
-    }
-
-    return (
-      <div className="admin-nav-panel__section">
-        {reviews.length === 0 ? (
-          <div className="admin-nav-panel__placeholder">
-            <strong>No reviews yet</strong>
-          </div>
-        ) : (
-          <div className="admin-nav-panel__list">
-            {reviews.map((r) => (
-              <div key={r.id} className="admin-review-row">
-                <div className="admin-review-row__top">
-                  <strong>{r.author}</strong>
-                  <span className="admin-review-row__stars">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <span key={i} style={{ color: i < r.rating ? "#f59e0b" : "#ddd" }}>★</span>
-                    ))}
-                  </span>
-                </div>
-                <p className="admin-review-row__text">{r.text}</p>
-                <div className="admin-review-row__meta">
-                  {r.verified && <span className="admin-chip admin-chip--active">Verified</span>}
-                  <span style={{ fontSize: 12, color: "#999" }}>{r.date}</span>
-                  <button
-                    type="button"
-                    className="admin-chip admin-chip--danger"
-                    onClick={() => handleDeleteNavReview(r.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function renderSettingsNavPanel() {
-    const settings = (navPanelData as { settings?: SiteSettings }).settings;
-    if (!settings) {
-      return (
-        <div className="admin-nav-panel__placeholder">
-          <strong>Could not load settings</strong>
-        </div>
-      );
-    }
-
-    function updateField<K extends keyof SiteSettings>(key: K, value: SiteSettings[K]) {
-      setNavPanelData((prev) => ({
-        ...prev,
-        settings: { ...((prev as { settings?: SiteSettings }).settings ?? DEFAULT_SETTINGS), [key]: value },
-      }));
-    }
-
-    async function handleSaveSettings() {
-      const current = (navPanelData as { settings?: SiteSettings }).settings;
-      if (!current) return;
-      try {
-        await saveSettings(current);
-        setToast({ tone: "success", message: "Settings saved" });
-      } catch {
-        setToast({ tone: "error", message: "Failed to save settings" });
-      }
-    }
-
-    async function handleResetAll() {
-      if (!confirm("Reset ALL data to defaults? This cannot be undone.")) return;
-      try {
-        await resetAdminData();
-        setToast({ tone: "success", message: "All data reset" });
-        closeNavPanel();
-        void loadStore();
-      } catch {
-        setToast({ tone: "error", message: "Reset failed" });
-      }
-    }
-
-    return (
-      <div className="admin-nav-panel__section">
-        <label className="admin-settings-field">
-          <span>Site Name</span>
-          <input
-            type="text"
-            value={settings.siteName}
-            onChange={(e) => updateField("siteName", e.target.value)}
-          />
-        </label>
-        <label className="admin-settings-field">
-          <span>Email</span>
-          <input
-            type="email"
-            value={settings.siteEmail}
-            onChange={(e) => updateField("siteEmail", e.target.value)}
-          />
-        </label>
-        <label className="admin-settings-field">
-          <span>Currency</span>
-          <select
-            value={settings.currency}
-            onChange={(e) => updateField("currency", e.target.value)}
-          >
-            <option value="AUD">AUD</option>
-            <option value="USD">USD</option>
-            <option value="GBP">GBP</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </label>
-        <label className="admin-settings-field">
-          <span>Show Out-of-Stock Products</span>
-          <button
-            type="button"
-            className={`inline-toggle${settings.showOutOfStock !== false ? " inline-toggle--checked" : ""}`}
-            onClick={() => updateField("showOutOfStock", !(settings.showOutOfStock !== false))}
-          >
-            <span className="inline-toggle__track">
-              <span className="inline-toggle__thumb" />
-            </span>
-            <span>{settings.showOutOfStock !== false ? "Visible" : "Hidden"}</span>
-          </button>
-        </label>
-        <div className="admin-settings-actions">
-          <button
-            type="button"
-            className="admin-btn admin-btn--primary"
-            onClick={handleSaveSettings}
-          >
-            Save Settings
-          </button>
-          <button
-            type="button"
-            className="admin-btn admin-btn--danger"
-            onClick={handleResetAll}
-          >
-            Reset All Data
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="storefront-editor-topbar">
@@ -5701,20 +5223,6 @@ export default function StorefrontAdminApp({
           <span className="storefront-editor-topbar__dot" />
           <span>AllRemotes Admin</span>
         </div>
-        <nav className="storefront-editor-topbar__nav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`storefront-editor-topbar__nav-item${
-                activeNavPanel === item.key ? " storefront-editor-topbar__nav-item--active" : ""
-              }`}
-              onClick={() => openNavPanel(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
         <div className="storefront-editor-topbar__actions">
           <button
             type="button"
@@ -5743,33 +5251,6 @@ export default function StorefrontAdminApp({
           )}
         </div>
       </div>
-
-      {/* ─── Admin nav panel overlay ─── */}
-      {activeNavPanel && (
-        <>
-          <div
-            className="admin-nav-overlay"
-            onClick={closeNavPanel}
-            onKeyDown={(e) => e.key === "Escape" && closeNavPanel()}
-          />
-          <aside className="admin-nav-panel" aria-label={`${activeNavPanel} panel`}>
-            <div className="admin-nav-panel__header">
-              <strong>{NAV_ITEMS.find((i) => i.key === activeNavPanel)?.label}</strong>
-              <button
-                type="button"
-                className="admin-nav-panel__close"
-                onClick={closeNavPanel}
-                aria-label="Close panel"
-              >
-                ×
-              </button>
-            </div>
-            <div className="admin-nav-panel__body">
-              {renderNavPanelContent()}
-            </div>
-          </aside>
-        </>
-      )}
 
       <div className="flex min-h-screen flex-col allremotes-admin-clone site-shell">
         {renderHeader()}
