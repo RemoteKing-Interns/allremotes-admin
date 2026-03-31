@@ -837,6 +837,10 @@ export default function StorefrontAdminApp({
     zipCode: "",
     paymentMethod: "card",
   });
+  const [activeNavPanel, setActiveNavPanel] = useState<
+    "dashboard" | "analytics" | "users" | "orders" | "promotions" | "reviews" | "settings" | null
+  >(null);
+  const [analyticsTimeRange, setAnalyticsTimeRange] = useState("30d");
   const deferredSearch = useDeferredValue(searchQuery);
   const routePath = normalizeRoutePath(slug);
 
@@ -5248,6 +5252,26 @@ export default function StorefrontAdminApp({
           <span className="storefront-editor-topbar__dot" />
           <span>AllRemotes Admin</span>
         </div>
+
+        <nav className="storefront-editor-topbar__nav">
+          {["Dashboard", "Analytics", "Users", "Orders", "Promotions", "Reviews", "Settings"].map(
+            (label) => {
+              const panelKey = label.toLowerCase() as typeof activeNavPanel;
+              const isActive = activeNavPanel === panelKey;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  className={`storefront-editor-topbar__nav-item${isActive ? " storefront-editor-topbar__nav-item--active" : ""}`}
+                  onClick={() => setActiveNavPanel(isActive ? null : panelKey)}
+                >
+                  {label}
+                </button>
+              );
+            },
+          )}
+        </nav>
+
         <div className="storefront-editor-topbar__actions">
           <button
             type="button"
@@ -5294,6 +5318,612 @@ export default function StorefrontAdminApp({
           {toast.message}
         </div>
       ) : null}
+
+      {activeNavPanel ? (
+        <>
+          <div className="admin-nav-overlay" onClick={() => setActiveNavPanel(null)} />
+
+          {activeNavPanel === "dashboard" && <AdminDashboardPanel onClose={() => setActiveNavPanel(null)} store={store} />}
+          {activeNavPanel === "analytics" && (
+            <AdminAnalyticsPanel
+              onClose={() => setActiveNavPanel(null)}
+              timeRange={analyticsTimeRange}
+              onTimeRangeChange={setAnalyticsTimeRange}
+            />
+          )}
+          {activeNavPanel === "users" && <AdminUsersPanel onClose={() => setActiveNavPanel(null)} />}
+          {activeNavPanel === "orders" && <AdminOrdersPanel onClose={() => setActiveNavPanel(null)} />}
+          {activeNavPanel === "promotions" && (
+            <AdminPromotionsPanel
+              onClose={() => setActiveNavPanel(null)}
+              data={store?.promotions}
+              onUpdate={async (updated) => {
+                if (store) {
+                  setStore({ ...store, promotions: updated });
+                }
+              }}
+            />
+          )}
+          {activeNavPanel === "reviews" && (
+            <AdminReviewsPanel
+              onClose={() => setActiveNavPanel(null)}
+              reviews={store?.reviews ?? []}
+              onUpdate={async (updated) => {
+                if (store) {
+                  setStore({ ...store, reviews: updated });
+                }
+              }}
+            />
+          )}
+          {activeNavPanel === "settings" && (
+            <AdminSettingsPanel
+              onClose={() => setActiveNavPanel(null)}
+              settings={store?.settings ?? DEFAULT_SETTINGS}
+              onReset={() => {
+                setStore(null);
+                setSavedStore(null);
+                setDirtySections({});
+                loadStore();
+              }}
+            />
+          )}
+        </>
+      ) : null}
     </>
   );
 }
+
+/* ─────────────────────────────────────────────────────────────
+   ADMIN NAV PANEL COMPONENTS
+   ───────────────────────────────────────────────────────────── */
+
+function AdminDashboardPanel({
+  onClose,
+  store,
+}: {
+  onClose: () => void;
+  store: StorefrontState | null;
+}) {
+  if (!store) return null;
+
+  const productCount = store.products.length;
+  const orderCount = 0; // TODO: fetch from orders
+  const reviewCount = store.reviews.length;
+  const promotionCount =
+    (store.promotions.offers?.offers?.length ?? 0) +
+    (store.promotions.topInfoBar?.items?.length ?? 0);
+
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Dashboard</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-gray-200 p-4">
+            <div className="text-xs font-medium text-gray-500 uppercase">Total Products</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{productCount}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-4">
+            <div className="text-xs font-medium text-gray-500 uppercase">Total Orders</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{orderCount}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-4">
+            <div className="text-xs font-medium text-gray-500 uppercase">Total Reviews</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{reviewCount}</div>
+          </div>
+          <div className="rounded-lg border border-gray-200 p-4">
+            <div className="text-xs font-medium text-gray-500 uppercase">Active Promotions</div>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{promotionCount}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminAnalyticsPanel({
+  onClose,
+  timeRange,
+  onTimeRangeChange,
+}: {
+  onClose: () => void;
+  timeRange: string;
+  onTimeRangeChange: (range: string) => void;
+}) {
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Analytics</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Time Range</label>
+            <select
+              value={timeRange}
+              onChange={(e) => onTimeRangeChange(e.currentTarget.value)}
+              className="mt-2 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="1y">Last year</option>
+            </select>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <p className="text-sm text-blue-700">📊 Analytics coming soon</p>
+            <p className="mt-2 text-xs text-blue-600">Real-time dashboard data will be available here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminUsersPanel({ onClose }: { onClose: () => void }) {
+  const [users] = useState<Array<{ id: string; name: string; email: string }>>(() => {
+    const stored = localStorage.getItem("admin_accounts");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Users</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        {users.length === 0 ? (
+          <p className="text-sm text-gray-500">No user accounts found.</p>
+        ) : (
+          <div className="space-y-2">
+            {users.map((user) => (
+              <div
+                key={user.id}
+                className="flex items-start justify-between rounded-lg border border-gray-200 p-3"
+              >
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminOrdersPanel({ onClose }: { onClose: () => void }) {
+  interface Order {
+    id: string;
+    status?: string;
+    createdAt?: string;
+  }
+  
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchOrders() {
+      try {
+        setLoading(true);
+        const result = await fetch("/api/orders").then((r) => r.json());
+        setOrders(Array.isArray(result) ? result : result.orders ?? []);
+      } catch {
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchOrders();
+  }, []);
+
+  const statuses = ["Processing", "Shipped", "Delivered", "Cancelled"];
+
+  async function updateOrderStatus(orderId: string, newStatus: string) {
+    try {
+      await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    } catch (error) {
+      console.error("Failed to update order:", error);
+    }
+  }
+
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Orders</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading orders...</p>
+        ) : orders.length === 0 ? (
+          <p className="text-sm text-gray-500">No orders found.</p>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order) => (
+              <div key={order.id} className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">Order #{order.id}</div>
+                    <div className="text-xs text-gray-500">
+                      {order.createdAt
+                        ? new Date(order.createdAt).toLocaleDateString()
+                        : "Unknown date"}
+                    </div>
+                  </div>
+                </div>
+                <select
+                  value={order.status || "Processing"}
+                  onChange={(e) => updateOrderStatus(order.id, e.currentTarget.value)}
+                  className="mt-2 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+                >
+                  {statuses.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminPromotionsPanel({
+  onClose,
+  data,
+  onUpdate,
+}: {
+  onClose: () => void;
+  data: PromotionsData | undefined;
+  onUpdate: (data: PromotionsData) => Promise<void>;
+}) {
+  const [items, setItems] = useState(data?.topInfoBar.items ?? []);
+  const [enabled, setEnabled] = useState(data?.topInfoBar.enabled ?? false);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const updated: PromotionsData = {
+        ...data!,
+        topInfoBar: { enabled, items },
+      };
+      await savePromotions(updated);
+      await onUpdate(updated);
+    } catch (error) {
+      console.error("Failed to save promotions:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Promotions</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        <div className="space-y-4">
+          <div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.currentTarget.checked)}
+                className="h-4 w-4"
+              />
+              <span className="text-sm font-medium text-gray-700">Enable top info bar</span>
+            </label>
+          </div>
+          {enabled && (
+            <div className="space-y-2">
+              {items.map((item, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Promotion text"
+                    value={item}
+                    onChange={(e) => {
+                      const updated = [...items];
+                      updated[idx] = e.currentTarget.value;
+                      setItems(updated);
+                    }}
+                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setItems([...items, ""])}
+                className="text-sm text-blue-600 hover:text-blue-700"
+              >
+                + Add promotion
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Promotions"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminReviewsPanel({
+  onClose,
+  reviews,
+  onUpdate,
+}: {
+  onClose: () => void;
+  reviews: Review[];
+  onUpdate: (reviews: Review[]) => Promise<void>;
+}) {
+  const [items, setItems] = useState(reviews);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await saveReviews(items);
+      await onUpdate(items);
+    } catch (error) {
+      console.error("Failed to save reviews:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function deleteReview(id: string) {
+    setItems((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Reviews</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        <div className="space-y-3">
+          {items.map((review) => (
+            <div key={review.id} className="rounded-lg border border-gray-200 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-medium text-gray-600">{review.rating}★</span>
+                    <input
+                      type="checkbox"
+                      checked={review.verified ?? false}
+                      onChange={(e) => {
+                        setItems((prev) =>
+                          prev.map((r) =>
+                            r.id === review.id ? { ...r, verified: e.currentTarget.checked } : r,
+                          ),
+                        );
+                      }}
+                      className="h-4 w-4"
+                      title="Verified"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Author"
+                    value={review.author}
+                    onChange={(e) => {
+                      setItems((prev) =>
+                        prev.map((r) =>
+                          r.id === review.id ? { ...r, author: e.currentTarget.value } : r,
+                        ),
+                      );
+                    }}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  />
+                  <textarea
+                    placeholder="Review text"
+                    value={review.text}
+                    onChange={(e) => {
+                      setItems((prev) =>
+                        prev.map((r) =>
+                          r.id === review.id ? { ...r, text: e.currentTarget.value } : r,
+                        ),
+                      );
+                    }}
+                    className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deleteReview(review.id)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Reviews"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminSettingsPanel({
+  onClose,
+  settings,
+  onReset,
+}: {
+  onClose: () => void;
+  settings: SiteSettings;
+  onReset: () => void;
+}) {
+  const [formData, setFormData] = useState(settings);
+  const [saving, setSaving] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch("/api/content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _id: "settings", ...formData }),
+      });
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="admin-nav-panel">
+      <div className="admin-nav-panel__header">
+        <strong>Settings</strong>
+        <button type="button" className="admin-nav-panel__close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="admin-nav-panel__body">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Site Name</label>
+            <input
+              type="text"
+              value={formData.siteName}
+              onChange={(e) => setFormData({ ...formData, siteName: e.currentTarget.value })}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              value={formData.siteEmail}
+              onChange={(e) => setFormData({ ...formData, siteEmail: e.currentTarget.value })}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Currency</label>
+            <input
+              type="text"
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.currentTarget.value })}
+              className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={formData.showOutOfStock ?? false}
+                onChange={(e) =>
+                  setFormData({ ...formData, showOutOfStock: e.currentTarget.checked })
+                }
+                className="mr-2 h-4 w-4"
+              />
+              Show out of stock items
+            </label>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Settings"}
+          </button>
+          {!showResetConfirm ? (
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(true)}
+              className="w-full rounded-lg border border-red-300 px-3 py-2 text-red-600 text-sm font-medium hover:bg-red-50"
+            >
+              Reset All Data
+            </button>
+          ) : (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3">
+              <p className="text-sm font-medium text-red-800">Reset all data to defaults?</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onReset();
+                    setShowResetConfirm(false);
+                  }}
+                  className="flex-1 rounded bg-red-600 px-3 py-1 text-white text-xs font-medium hover:bg-red-700"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 rounded border border-red-300 px-3 py-1 text-red-600 text-xs font-medium hover:bg-red-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
