@@ -9,6 +9,7 @@ import {
   type NavigationTree,
   type Order,
   type Product,
+  type ProductPage,
   type PromotionOffer,
   type PromotionsData,
   type Review,
@@ -104,6 +105,156 @@ function normalizeProduct(input: unknown): Product {
     seller:
       record.seller ? String(record.seller) : "AllRemotes (100% positive)",
     skuKey: record.skuKey ? String(record.skuKey) : null,
+  };
+}
+
+function normalizeOrder(input: unknown): Order {
+  const record = isRecord(input) ? input : {};
+  const customer = isRecord(record.customer) ? record.customer : {};
+  const shipping = isRecord(record.shipping) ? record.shipping : {};
+  const pricing = isRecord(record.pricing) ? record.pricing : {};
+  const rawItems = Array.isArray(record.items) ? record.items : [];
+
+  return {
+    id: String(record.id ?? crypto.randomUUID()),
+    status:
+      record.status === "processing" ||
+      record.status === "shipped" ||
+      record.status === "delivered" ||
+      record.status === "cancelled"
+        ? record.status
+        : "processing",
+    createdAt:
+      typeof record.createdAt === "string"
+        ? record.createdAt
+        : typeof record.created_at === "string"
+          ? record.created_at
+          : undefined,
+    updatedAt:
+      typeof record.updatedAt === "string"
+        ? record.updatedAt
+        : typeof record.updated_at === "string"
+          ? record.updated_at
+          : undefined,
+    customer: {
+      fullName:
+        typeof customer.fullName === "string"
+          ? customer.fullName
+          : typeof customer.name === "string"
+            ? customer.name
+            : undefined,
+      email: typeof customer.email === "string" ? customer.email : undefined,
+    },
+    shipping: {
+      address: typeof shipping.address === "string" ? shipping.address : undefined,
+      city: typeof shipping.city === "string" ? shipping.city : undefined,
+      state: typeof shipping.state === "string" ? shipping.state : undefined,
+      zipCode: typeof shipping.zipCode === "string" ? shipping.zipCode : undefined,
+      country: typeof shipping.country === "string" ? shipping.country : undefined,
+    },
+    pricing: {
+      currency:
+        typeof pricing.currency === "string"
+          ? pricing.currency
+          : typeof pricing.currencyCode === "string"
+            ? pricing.currencyCode
+            : undefined,
+      subtotal: Number(pricing.subtotal ?? 0),
+      discountTotal: Number(pricing.discountTotal ?? pricing.discount ?? 0),
+      total: Number(pricing.total ?? 0),
+      hasMemberDiscount: Boolean(pricing.hasMemberDiscount),
+      memberDiscountRate: Number(pricing.memberDiscountRate ?? 0),
+    },
+    items: rawItems.map((item, index) => {
+      const itemRecord = isRecord(item) ? item : {};
+
+      return {
+        id: String(itemRecord.id ?? `${record.id ?? "order"}_${index}`),
+        name: String(itemRecord.name ?? "Item"),
+        category:
+          typeof itemRecord.category === "string" ? itemRecord.category : undefined,
+        quantity: Number(itemRecord.quantity ?? 1),
+        unitPrice: Number(itemRecord.unitPrice ?? itemRecord.price ?? 0),
+        lineTotal:
+          Number(
+            itemRecord.lineTotal ??
+              Number(itemRecord.quantity ?? 1) * Number(itemRecord.unitPrice ?? itemRecord.price ?? 0),
+          ),
+      };
+    }),
+  };
+}
+
+function normalizeOrderCollection(input: unknown): Order[] {
+  if (Array.isArray(input)) {
+    return input.map(normalizeOrder);
+  }
+
+  if (!isRecord(input)) {
+    return [];
+  }
+
+  const candidates = [input.orders, input.data, input.items, input.results];
+  const list = candidates.find((candidate) => Array.isArray(candidate));
+
+  return Array.isArray(list) ? list.map(normalizeOrder) : [];
+}
+
+function toPositiveInteger(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.floor(parsed));
+}
+
+function normalizeProductsPage(input: unknown, page: number, pageSize: number): ProductPage {
+  if (Array.isArray(input)) {
+    const total = input.length;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      items: input.slice(start, end).map(normalizeProduct),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  const record = isRecord(input) ? input : {};
+  const list = Array.isArray(record.items)
+    ? record.items
+    : Array.isArray(record.products)
+      ? record.products
+      : Array.isArray(record.data)
+        ? record.data
+        : [];
+  const normalizedItems = list.map(normalizeProduct);
+  const normalizedPage = toPositiveInteger(record.page, page);
+  const normalizedPageSize = toPositiveInteger(
+    record.pageSize ?? record.limit,
+    pageSize,
+  );
+  const normalizedTotal = Math.max(
+    normalizedItems.length,
+    toPositiveInteger(record.total ?? record.count, normalizedItems.length),
+  );
+  const normalizedTotalPages = Math.max(
+    1,
+    toPositiveInteger(
+      record.totalPages,
+      Math.ceil(normalizedTotal / Math.max(1, normalizedPageSize)),
+    ),
+  );
+
+  return {
+    items: normalizedItems,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    total: normalizedTotal,
+    totalPages: normalizedTotalPages,
   };
 }
 
@@ -546,11 +697,56 @@ function settingsToPayload(settings: SiteSettings) {
 }
 
 export async function getProducts() {
-  const data = await request<unknown[]>("/api/products", {
+  const data = await request<unknown>("/api/products", {
     cache: "no-store",
   });
 
-  return Array.isArray(data) ? data.map(normalizeProduct) : [];
+  if (Array.isArray(data)) {
+    return data.map(normalizeProduct);
+  }
+
+  if (isRecord(data) && Array.isArray(data.items)) {
+    return data.items.map(normalizeProduct);
+  }
+
+  if (isRecord(data) && Array.isArray(data.products)) {
+    return data.products.map(normalizeProduct);
+  }
+
+  if (isRecord(data) && Array.isArray(data.data)) {
+    return data.data.map(normalizeProduct);
+  }
+
+  return [];
+}
+
+export async function getProductsPage(options: {
+  page: number;
+  pageSize: number;
+  query?: string;
+  stock?: "all" | "in" | "out";
+}) {
+  const params = new URLSearchParams();
+  params.set("page", String(toPositiveInteger(options.page, 1)));
+  params.set("pageSize", String(toPositiveInteger(options.pageSize, 20)));
+
+  if (options.query?.trim()) {
+    params.set("search", options.query.trim());
+  }
+
+  if (options.stock === "in") {
+    params.set("inStock", "true");
+  }
+
+  if (options.stock === "out") {
+    params.set("inStock", "false");
+  }
+
+  const response = await request<unknown>(`/api/products?${params.toString()}`, {
+    cache: "no-store",
+  });
+
+  return normalizeProductsPage(response, options.page, options.pageSize);
 }
 
 export async function saveProducts(products: Product[]) {
@@ -561,11 +757,31 @@ export async function saveProducts(products: Product[]) {
 }
 
 export async function getOrders() {
-  const data = await request<unknown[]>("/api/orders", {
-    cache: "no-store",
-  });
+  try {
+    const data = await request<unknown>("/api/orders", {
+      cache: "no-store",
+    });
 
-  return Array.isArray(data) ? (data as Order[]) : [];
+    return normalizeOrderCollection(data);
+  } catch (primaryError) {
+    const primaryMessage =
+      primaryError instanceof Error ? primaryError.message : "Primary order API failed";
+
+    try {
+      const fallbackData = await request<unknown>("/api/admin/orders", {
+        cache: "no-store",
+      });
+      return normalizeOrderCollection(fallbackData);
+    } catch (fallbackError) {
+      const fallbackMessage =
+        fallbackError instanceof Error
+          ? fallbackError.message
+          : "Fallback order API failed";
+      throw new Error(
+        `Orders API flow failed: GET /api/orders -> GET /api/admin/orders. ${primaryMessage}. ${fallbackMessage}`,
+      );
+    }
+  }
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {

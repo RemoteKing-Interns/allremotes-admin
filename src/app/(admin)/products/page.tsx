@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  ChevronLeft,
   ChevronRight,
   ImageIcon,
   Plus,
@@ -23,7 +24,7 @@ import {
   selectClassName,
   textareaClassName,
 } from "@/components/admin/ui";
-import { getProducts, saveProducts } from "@/lib/admin/api";
+import { getProducts, getProductsPage, saveProducts } from "@/lib/admin/api";
 import { createClientId, formatCurrency } from "@/lib/admin/utils";
 import type { Product } from "@/lib/admin/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,7 +37,9 @@ type FlashState =
   | null;
 
 export default function ProductsPage() {
+  const pageSize = 20;
   const [products, setProducts] = useState<Product[]>([]);
+  const [loadedPageIds, setLoadedPageIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "edit">("list");
   
@@ -44,6 +47,9 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<FlashState>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "out">("all");
@@ -54,9 +60,26 @@ export default function ProductsPage() {
 
     async function load() {
       try {
-        const nextProducts = await getProducts();
+        const nextPage = await getProductsPage({
+          page: currentPage,
+          pageSize,
+          query: searchQuery,
+          stock: stockFilter,
+        });
         if (!active) return;
-        setProducts(nextProducts);
+        setProducts(nextPage.items);
+        setLoadedPageIds(nextPage.items.map((product) => product.id));
+        setTotalPages(nextPage.totalPages);
+        setTotalProducts(nextPage.total);
+        setSelectedId((current) => {
+          if (!current) {
+            return nextPage.items[0]?.id ?? null;
+          }
+
+          return nextPage.items.some((product) => product.id === current)
+            ? current
+            : nextPage.items[0]?.id ?? null;
+        });
       } catch (error) {
         if (!active) return;
         setNotice({
@@ -74,27 +97,12 @@ export default function ProductsPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [currentPage, pageSize, reloadKey, searchQuery, stockFilter]);
 
   const selectedProduct = useMemo(
     () => products.find((p) => p.id === selectedId) ?? null,
     [products, selectedId],
   );
-
-  const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-
-    return products.filter((product) => {
-      if (stockFilter === "in" && !product.inStock) return false;
-      if (stockFilter === "out" && product.inStock) return false;
-
-      if (!query) return true;
-      return [product.name, product.brand, product.category, product.sku]
-        .join(" ")
-        .toLowerCase()
-        .includes(query);
-    });
-  }, [products, searchQuery, stockFilter]);
 
   const pendingDeleteProduct = useMemo(
     () => products.find((product) => product.id === pendingDeleteId) ?? null,
@@ -170,11 +178,24 @@ export default function ProductsPage() {
     setNotice(null);
 
     try {
-      await saveProducts(products);
+      const fullCatalog = await getProducts();
+      const currentById = new Map(products.map((product) => [product.id, product]));
+      const removedIds = loadedPageIds.filter((id) => !currentById.has(id));
+
+      const mergedCatalog = fullCatalog
+        .filter((product) => !removedIds.includes(product.id))
+        .map((product) => currentById.get(product.id) ?? product);
+
+      const existingIds = new Set(mergedCatalog.map((product) => product.id));
+      const draftedProducts = products.filter((product) => !existingIds.has(product.id));
+      const payload = [...draftedProducts, ...mergedCatalog];
+
+      await saveProducts(payload);
       setNotice({
         tone: "success",
         text: "Products saved successfully.",
       });
+      setReloadKey((current) => current + 1);
       window.setTimeout(() => {
         const iframe = document.getElementById("live-preview-iframe") as HTMLIFrameElement | null;
         if (iframe) iframe.src = iframe.src;
@@ -188,6 +209,33 @@ export default function ProductsPage() {
       setSaving(false);
     }
   }
+
+  function visiblePages() {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const pages: Array<number | "…"> = [1];
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+
+    if (start > 2) {
+      pages.push("…");
+    }
+
+    for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
+      pages.push(pageNumber);
+    }
+
+    if (end < totalPages - 1) {
+      pages.push("…");
+    }
+
+    pages.push(totalPages);
+    return pages;
+  }
+
+  const pageLinks = visiblePages();
 
   if (loading) {
     return <LoadingState label="Loading catalog…" />;
@@ -268,16 +316,20 @@ export default function ProductsPage() {
                     className={inputClassName + " pl-9"}
                     placeholder="Search name, brand, SKU..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
                   />
                 </div>
                 <div className="flex gap-2">
                   <select
                     className={selectClassName + " w-32"}
                     value={stockFilter}
-                    onChange={(e) =>
-                      setStockFilter(e.target.value as "all" | "in" | "out")
-                    }
+                    onChange={(e) => {
+                      setStockFilter(e.target.value as "all" | "in" | "out");
+                      setCurrentPage(1);
+                    }}
                   >
                     <option value="all">All Stock</option>
                     <option value="in">In Stock</option>
@@ -302,11 +354,18 @@ export default function ProductsPage() {
                   border: "1px solid rgba(189, 200, 206, 0.15)",
                 }}
               >
-                {filteredProducts.length === 0 ? (
+                <div className="flex items-center justify-between border-b border-[#efeded] bg-[#fbf9f9] px-3 py-2 text-[11px] font-semibold text-[#6e797e]">
+                  <span>
+                    Showing {totalProducts === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalProducts)} of {totalProducts}
+                  </span>
+                  <span>Page {currentPage} / {totalPages}</span>
+                </div>
+
+                {products.length === 0 ? (
                   <EmptyState title="No products found" description="Try adjusting your search criteria." />
                 ) : (
                   <div className="flex flex-col divide-y divide-[#efeded]">
-                    {filteredProducts.map((product) => (
+                    {products.map((product) => (
                       <button
                         key={product.id}
                         type="button"
@@ -350,6 +409,49 @@ export default function ProductsPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="flex items-center justify-between border-t border-[#efeded] bg-white px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#efeded] px-2.5 py-1.5 text-[11px] font-semibold text-[#3e484d] transition hover:bg-[#fbf9f9] disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {pageLinks.map((page, index) =>
+                      page === "…" ? (
+                        <span key={`ellipsis-${index}`} className="px-1 text-[11px] text-[#6e797e]">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          type="button"
+                          onClick={() => setCurrentPage(page)}
+                          className={`inline-flex h-7 min-w-7 items-center justify-center rounded-md px-2 text-[11px] font-semibold transition ${
+                            page === currentPage
+                              ? "bg-[#00647c] text-white"
+                              : "text-[#3e484d] hover:bg-[#f5f3f3]"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#efeded] px-2.5 py-1.5 text-[11px] font-semibold text-[#3e484d] transition hover:bg-[#fbf9f9] disabled:opacity-40"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             </motion.div>
           ) : (

@@ -25,8 +25,64 @@ type FlashState =
     }
   | null;
 
+const MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024;
+const REQUIRED_HEADERS = ["sku", "name", "price"];
+
+function csvHeaders(input: string) {
+  const firstLine = input
+    .split(/\r?\n/)
+    .find((line) => line.trim().length > 0)
+    ?.trim();
+
+  if (!firstLine) {
+    return [];
+  }
+
+  return firstLine
+    .split(",")
+    .map((header) => header.trim().toLowerCase().replace(/^"|"$/g, ""))
+    .filter(Boolean);
+}
+
+async function validateCsvFile(file: File) {
+  const errors: string[] = [];
+  const lowercaseName = file.name.toLowerCase();
+  const isCsvType = file.type === "text/csv" || file.type === "application/vnd.ms-excel";
+
+  if (!lowercaseName.endsWith(".csv") && !isCsvType) {
+    errors.push("File must be a CSV (.csv) file.");
+  }
+
+  if (file.size > MAX_CSV_SIZE_BYTES) {
+    errors.push("File size exceeds 5MB. Split the file and upload in smaller batches.");
+  }
+
+  if (file.size === 0) {
+    errors.push("CSV file is empty.");
+  }
+
+  try {
+    const preview = await file.slice(0, 4096).text();
+    const headers = csvHeaders(preview);
+
+    if (!headers.length) {
+      errors.push("CSV header row is missing.");
+    } else {
+      const missing = REQUIRED_HEADERS.filter((required) => !headers.includes(required));
+      if (missing.length) {
+        errors.push(`Missing required headers: ${missing.join(", ")}.`);
+      }
+    }
+  } catch {
+    errors.push("Could not read the CSV file. Try selecting the file again.");
+  }
+
+  return errors;
+}
+
 export default function UploadCsvPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [result, setResult] = useState<UploadCsvResult | null>(null);
@@ -63,6 +119,14 @@ export default function UploadCsvPage() {
       return;
     }
 
+    if (validationErrors.length) {
+      setNotice({
+        tone: "error",
+        text: "Fix CSV validation errors before uploading.",
+      });
+      return;
+    }
+
     setUploading(true);
     setNotice(null);
 
@@ -81,6 +145,20 @@ export default function UploadCsvPage() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function onFileChange(nextFile: File | null) {
+    setFile(nextFile);
+    setResult(null);
+    setNotice(null);
+
+    if (!nextFile) {
+      setValidationErrors([]);
+      return;
+    }
+
+    const errors = await validateCsvFile(nextFile);
+    setValidationErrors(errors);
   }
 
   return (
@@ -105,7 +183,7 @@ export default function UploadCsvPage() {
               variant="primary"
               size="lg"
               onClick={() => void onUpload()}
-              disabled={uploading}
+              disabled={uploading || !file || validationErrors.length > 0}
             >
               <Upload className="h-4 w-4" />
               {uploading ? "Uploading…" : "Upload CSV"}
@@ -127,11 +205,27 @@ export default function UploadCsvPage() {
               className={inputClassName}
               type="file"
               accept=".csv,text/csv"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                void onFileChange(event.target.files?.[0] ?? null);
+              }}
             />
             <p className="text-sm text-neutral-600">
               Selected file: {file ? `${file.name} (${file.size} bytes)` : "None"}
             </p>
+            {validationErrors.length ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <p className="font-semibold">CSV validation errors</p>
+                <ul className="mt-2 list-disc pl-5">
+                  {validationErrors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : file ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                CSV file passed client-side validation.
+              </div>
+            ) : null}
           </div>
         </Card>
 

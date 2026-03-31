@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useDeferredValue,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
   type FormEvent,
@@ -1322,15 +1323,25 @@ export default function StorefrontAdminApp({
 
   const page = pageModel();
   const topLevelLinks = visibleSections();
-  const settingsContent = supportSettings(store?.settings ?? DEFAULT_SETTINGS);
-  const searchResults = (store?.products ?? [])
-    .filter((product) => {
-      const haystack = `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase();
-      return haystack.includes(deferredSearch.trim().toLowerCase());
-    })
-    .slice(0, 6);
-  const featuredProducts = (store?.products ?? []).slice(0, 8);
-  const catalogProducts = (() => {
+  const settingsContent = useMemo(
+    () => supportSettings(store?.settings ?? DEFAULT_SETTINGS),
+    [store?.settings],
+  );
+  const searchResults = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+
+    return (store?.products ?? [])
+      .filter((product) => {
+        const haystack = `${product.name} ${product.brand} ${product.sku ?? ""}`.toLowerCase();
+        return haystack.includes(query);
+      })
+      .slice(0, 6);
+  }, [deferredSearch, store?.products]);
+  const featuredProducts = useMemo(() => (store?.products ?? []).slice(0, 8), [store?.products]);
+  const catalogProducts = useMemo(() => {
     if (!store || page.kind !== "products") {
       return [];
     }
@@ -1364,19 +1375,19 @@ export default function StorefrontAdminApp({
     }
 
     if (catalogSort === "price-asc") {
-      items = [...items].sort((left, right) => left.price - right.price);
+      return [...items].sort((left, right) => left.price - right.price);
     }
 
     if (catalogSort === "price-desc") {
-      items = [...items].sort((left, right) => right.price - left.price);
+      return [...items].sort((left, right) => right.price - left.price);
     }
 
     if (catalogSort === "name") {
-      items = [...items].sort((left, right) => left.name.localeCompare(right.name));
+      return [...items].sort((left, right) => left.name.localeCompare(right.name));
     }
 
     return items;
-  })();
+  }, [catalogBrand, catalogSearch, catalogSort, catalogStock, page, store]);
   const totalPages = store
     ? Math.max(1, Math.ceil(catalogProducts.length / (store.settings.itemsPerPage || 12)))
     : 1;
@@ -1384,19 +1395,33 @@ export default function StorefrontAdminApp({
     (currentPage - 1) * (store?.settings.itemsPerPage || 12),
     currentPage * (store?.settings.itemsPerPage || 12),
   );
-  const catalogBrands = Array.from(
-    new Set(
-      (catalogProducts.length ? catalogProducts : store?.products ?? [])
-        .map((product) => product.brand)
-        .filter(Boolean),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
-  const customerReviews = publicReviews(store?.reviews ?? []);
-  const marqueeReviews = [...customerReviews, ...customerReviews];
-  const cartItemCount = cartItems.reduce((total, item) => total + Number(item.quantity || 0), 0);
-  const cartSubtotal = cartItems.reduce(
-    (total, item) => total + Number(item.price || 0) * Number(item.quantity || 0),
-    0,
+  const catalogBrands = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (catalogProducts.length ? catalogProducts : store?.products ?? [])
+            .map((product) => product.brand)
+            .filter(Boolean),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [catalogProducts, store?.products],
+  );
+  const customerReviews = useMemo(() => publicReviews(store?.reviews ?? []), [store?.reviews]);
+  const marqueeReviews = useMemo(
+    () => [...customerReviews, ...customerReviews],
+    [customerReviews],
+  );
+  const cartItemCount = useMemo(
+    () => cartItems.reduce((total, item) => total + Number(item.quantity || 0), 0),
+    [cartItems],
+  );
+  const cartSubtotal = useMemo(
+    () =>
+      cartItems.reduce(
+        (total, item) => total + Number(item.price || 0) * Number(item.quantity || 0),
+        0,
+      ),
+    [cartItems],
   );
   const dirtyCount = Object.keys(dirtySections).length;
   const currentSearch = searchParams.toString();
@@ -3007,7 +3032,7 @@ export default function StorefrontAdminApp({
               onClick={() => setMobileDrawerOpen(false)}
             />
             <aside
-              className="fixed right-0 top-12 z-[1400] flex h-[calc(100vh-48px)] w-full max-w-[24rem] flex-col border-l border-neutral-200 bg-[#fbf8f5] p-5 shadow-[0_28px_54px_rgba(12,34,38,0.12)]"
+              className="fixed right-0 top-12 z-[1400] flex h-[calc(100dvh-48px)] w-full max-w-[24rem] flex-col border-l border-neutral-200 bg-[#fbf8f5] p-5 shadow-[0_28px_54px_rgba(12,34,38,0.12)]"
               id="mobile-drawer"
             >
               <div className="flex items-center justify-between">
@@ -4232,7 +4257,7 @@ export default function StorefrontAdminApp({
 
               {pagedCatalogProducts.length ? (
                 <>
-                  <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="mt-6 grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                     {pagedCatalogProducts.map((product) => renderProductCard(product))}
                   </div>
 
@@ -4309,7 +4334,7 @@ export default function StorefrontAdminApp({
               aria-label="Close filters"
               onClick={() => setCatalogFiltersOpen(false)}
             />
-            <aside className="fixed right-0 top-12 z-[1400] h-[calc(100vh-48px)] w-full max-w-[24rem] overflow-y-auto border-l border-neutral-200 bg-[#fbf8f5] p-5 shadow-[0_28px_54px_rgba(12,34,38,0.12)] lg:hidden">
+            <aside className="fixed right-0 top-12 z-[1400] h-[calc(100dvh-48px)] w-full max-w-[24rem] overflow-y-auto border-l border-neutral-200 bg-[#fbf8f5] p-5 shadow-[0_28px_54px_rgba(12,34,38,0.12)] lg:hidden">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-neutral-900">Filters</h2>

@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { getApiBaseLabel, getSettings, resetAdminData, saveSettings } from "@/lib/admin/api";
 import type { SiteSettings } from "@/lib/admin/types";
+import { useAdminSessionGuard } from "@/lib/admin/use-admin-session-guard";
 
 type FlashState =
   | {
@@ -25,6 +26,7 @@ type FlashState =
   | null;
 
 export default function SettingsPage() {
+  const session = useAdminSessionGuard();
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +36,10 @@ export default function SettingsPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!session) {
+      return;
+    }
+
     let active = true;
 
     async function load() {
@@ -68,7 +74,7 @@ export default function SettingsPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, session]);
 
   async function onSave() {
     if (!settings) {
@@ -122,7 +128,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (loading || !settings) {
+  if (!session || loading || !settings) {
     return <LoadingState label="Loading settings…" />;
   }
 

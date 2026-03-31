@@ -40,6 +40,14 @@ export interface Product {
   skuKey?: string | null;
 }
 
+export interface ProductPage {
+  items: Product[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface OrderCustomer {
   fullName?: string;
   email?: string;

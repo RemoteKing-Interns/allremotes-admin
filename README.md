@@ -23,6 +23,18 @@ MONGODB_DB=allremotes
 
 After this setup, saves from the admin editor use the API content routes and now trigger server revalidation so updates appear on public pages faster.
 
+## Next.js 16 Build Configuration Note
+
+This project currently does not enable `cacheComponents` in `next.config.ts`, and the root route does not export `unstable_instant`.
+
+Why:
+
+- Enabling `cacheComponents` only to support `unstable_instant` introduced broader route validation requirements across the app.
+- Several routes use client-side hooks and async params patterns that then require strict Suspense placement and additional refactors.
+- For stable production builds, we keep the current route setup with explicit Suspense boundaries where needed and avoid `unstable_instant` until a full route-level instant-navigation migration is planned.
+
+If you want to reintroduce instant-navigation validation later, do it as a dedicated migration and validate all routes together.
+
 ## Getting Started
 
 First, run the development server:

@@ -20,6 +20,7 @@ import {
 import { LoadingState, Notice } from "@/components/admin/ui";
 import { formatCurrency, formatDateTime } from "@/lib/admin/utils";
 import type { Order, Product, PromotionsData, Review } from "@/lib/admin/types";
+import { useAdminSessionGuard } from "@/lib/admin/use-admin-session-guard";
 import { motion } from "framer-motion";
 
 type FlashState =
@@ -30,6 +31,7 @@ type FlashState =
   | null;
 
 export default function DashboardPage() {
+  const session = useAdminSessionGuard();
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [, setReviews] = useState<Review[]>([]);
@@ -40,6 +42,10 @@ export default function DashboardPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!session) {
+      return;
+    }
+
     let active = true;
     const initialLoad = reloadKey === 0;
 
@@ -82,7 +88,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, session]);
 
   const recentOrders = useMemo(
     () =>
@@ -96,7 +102,7 @@ export default function DashboardPage() {
 
   const activePromotions = promotions?.offers.offers.filter((offer) => offer.enabled).length ?? 0;
 
-  if (loading) {
+  if (!session || loading) {
     return <LoadingState label="Loading dashboard data…" />;
   }
 
