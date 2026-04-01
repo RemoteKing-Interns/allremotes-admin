@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useDeferredValue,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -546,6 +547,8 @@ export default function StorefrontAdminApp({
   const [navOrdersLoading, setNavOrdersLoading] = useState(false);
   const [navOrdersError, setNavOrdersError] = useState("");
   const [adminUsers, setAdminUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [inlineEditMode, setInlineEditMode] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const deferredSearch = useDeferredValue(searchQuery);
   const routePath = normalizeRoutePath(slug);
 
@@ -673,6 +676,17 @@ export default function StorefrontAdminApp({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (typeof event.reason === "undefined") {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    return () => window.removeEventListener("unhandledrejection", handleUnhandledRejection);
   }, []);
 
   useEffect(() => {
@@ -923,6 +937,9 @@ export default function StorefrontAdminApp({
         tone: "success",
         message: "Saved successfully",
       });
+      if (iframeRef.current) {
+        iframeRef.current.src = iframeRef.current.src;
+      }
       return true;
     } catch {
       setToast({
@@ -3275,37 +3292,32 @@ export default function StorefrontAdminApp({
 
   let content: ReactNode = null;
 
-  if (loading) {
+  if (loading && !store) {
     content = (
       <div className="loading">
         <div className="spinner" />
       </div>
     );
-  } else if (loadError) {
+  } else {
     content = (
-      <div className="category-page">
-        <div className="category-products">
-          <div className="container">
-            <h2 className="products-title">Unable to load live content</h2>
-            <p className="section-subtitle">{loadError}</p>
+      <div className="storefront-live-frame-wrap">
+        {loadError ? (
+          <div className="storefront-live-frame-banner">
+            Live sync warning: {loadError}
           </div>
+        ) : null}
+        <div className="storefront-live-frame-shell">
+          <iframe
+            ref={iframeRef}
+            src="https://allremotes.vercel.app"
+            referrerPolicy="no-referrer"
+            style={{ width: "100%", height: "calc(100vh - 48px)", border: "none" }}
+            title="Live storefront preview"
+            loading="eager"
+          />
         </div>
       </div>
     );
-  } else if (page.kind === "home") {
-    content = renderHome();
-  } else if (page.kind === "products") {
-    content = renderProductsPage();
-  } else if (page.kind === "product") {
-    content = renderProductDetail();
-  } else if (page.kind === "contact") {
-    content = renderContactPage();
-  } else if (page.kind === "category") {
-    content = renderCategoryLanding(page.sectionKey, page.section);
-  } else if (page.kind === "category-leaf") {
-    content = renderCategoryLeaf(page.sectionKey, page.section, page.item);
-  } else {
-    content = renderFallback();
   }
 
   return (
@@ -3331,6 +3343,13 @@ export default function StorefrontAdminApp({
           })}
         </nav>
         <div className="storefront-editor-topbar__actions">
+          <button
+            type="button"
+            className={`storefront-editor-topbar__nav-item${inlineEditMode ? " storefront-editor-topbar__nav-item--active" : ""}`}
+            onClick={() => setInlineEditMode((current) => !current)}
+          >
+            Edit
+          </button>
           <button
             type="button"
             className="storefront-editor-publish"
@@ -3359,11 +3378,116 @@ export default function StorefrontAdminApp({
         </div>
       </div>
 
-      <div className="App allremotes-admin-clone">
-        {renderHeader()}
-        <main>{content}</main>
-        {renderFooter()}
-      </div>
+      <main className="allremotes-admin-clone">{content}</main>
+
+      {inlineEditMode && session ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: "48px 0 0 0",
+            zIndex: 1350,
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "8px", left: "0", right: "0", height: "64px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar
+              visible
+              onEdit={() => openEditor("top-info-bar")}
+              onAdd={() => {
+                updatePromotions((current) => ({
+                  ...current,
+                  topInfoBar: {
+                    ...current.topInfoBar,
+                    items: [...current.topInfoBar.items, "NEW MESSAGE"],
+                  },
+                }));
+                setActiveEditor("top-info-bar");
+              }}
+            />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "90px", left: "0", right: "0", height: "72px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar visible onEdit={() => openEditor("navigation")} onAdd={addNavigationSection} />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "176px", left: "0", right: "0", height: "210px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar visible onEdit={() => openEditor("hero")} />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "410px", left: "0", right: "0", height: "190px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar
+              visible
+              onEdit={() => openEditor("features")}
+              onAdd={() => {
+                updateHome((current) => ({
+                  ...current,
+                  features: [
+                    ...current.features,
+                    {
+                      icon: "",
+                      title: "",
+                      description: "",
+                      path: "/products/all",
+                      linkText: "Explore ->",
+                    },
+                  ],
+                }));
+                setActiveEditor("features");
+              }}
+            />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "630px", left: "0", right: "0", height: "230px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar visible onEdit={() => openEditor("products")} onAdd={addProduct} />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "880px", left: "0", right: "0", height: "210px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar visible onEdit={() => openEditor("reviews")} onAdd={addReview} />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "1110px", left: "0", right: "0", height: "180px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar visible onEdit={() => openEditor("cta")} />
+          </div>
+
+          <div
+            className="editor-section-shell editor-section-shell--collapsed"
+            style={{ position: "absolute", top: "1320px", left: "0", right: "0", height: "220px", pointerEvents: "auto" }}
+          >
+            <SectionToolbar visible onEdit={() => openEditor("footer")} />
+          </div>
+        </div>
+      ) : null}
+
+      {renderTopInfoBarEditor()}
+      {renderNavigationEditor()}
+      {renderHeroEditor()}
+      {renderFeaturesEditor()}
+      {renderProductsEditor()}
+      {renderWhyBuyEditor()}
+      {renderReviewsEditor()}
+      {renderCtaEditor()}
+      {renderFooterEditor()}
 
       {toast ? (
         <div
