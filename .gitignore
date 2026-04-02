@@ -23,6 +23,10 @@
 /.vscode/
 /.idea/
 
+# Local AI agent instructions
+CLAUDE.md
+AGENTS.md
+
 # OS
 *.swp
 *~
