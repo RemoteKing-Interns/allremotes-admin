@@ -1,10 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 "use client";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  useCallback,
   useDeferredValue,
   useEffect,
   useRef,
@@ -552,7 +554,7 @@ export default function StorefrontAdminApp({
   const deferredSearch = useDeferredValue(searchQuery);
   const routePath = normalizeRoutePath(slug);
 
-  async function loadStore() {
+  const loadStore = useCallback(async () => {
     setLoading(true);
     setLoadError("");
 
@@ -647,11 +649,11 @@ export default function StorefrontAdminApp({
     } finally {
       setLoading(false);
     }
-  }
+  }, [savedStore]);
 
   useEffect(() => {
     void loadStore();
-  }, []);
+  }, [loadStore]);
 
   useEffect(() => {
     if (!store?.homeContent.heroImages.length) {

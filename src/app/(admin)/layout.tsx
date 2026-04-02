@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -191,7 +192,14 @@ export default function AdminLayout({
   const sidebarContent = (
     <div className="flex h-full flex-col" style={{ width: 260, background: "#ffffff", boxShadow: "1px 0 0 #efeded" }}>
       <div className="flex flex-col justify-center px-5" style={{ height: 64, flexShrink: 0, borderBottom: "1px solid #efeded" }}>
-        <img src="/images/mainlogo.png" alt="ALLREMOTES" className="h-7 w-auto" style={{ filter: "brightness(0)" }} />
+        <Image
+          src="/images/mainlogo.png"
+          alt="ALLREMOTES"
+          width={150}
+          height={28}
+          className="h-7 w-auto"
+          style={{ filter: "brightness(0)" }}
+        />
         <span className="mt-1 font-bold uppercase" style={{ fontSize: 9, letterSpacing: "0.2em", color: "#6e797e" }}>Admin Editor</span>
       </div>
 
